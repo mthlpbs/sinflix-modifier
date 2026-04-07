@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    hhttps://openuserjs.org/users/asurpbs
-// @version      26.4.01
+// @version      26.4.07
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links, copy-all-links per resolution, and Mega.nz bypass circles (click to instantly bypass & download, or copy all bypass links). On mega.nz file pages: floating bypass download button that skips Mega quota limits.
 // @license      MIT
 // @author       asurpbs
@@ -1111,65 +1111,127 @@
         const preElement = document.querySelector('pre');
         if (!preElement) return false;
 
-        const lines = preElement.textContent.split('\n');
-        let newHtml = '';
+        // Guard against double-processing
+        if (preElement.dataset.sinflixProcessed) return true;
+        preElement.dataset.sinflixProcessed = 'true';
+
+        const resolutionLinks = {};
+        const resolutionMegaLinks = {};
         let currentResolution = null;
-        let resolutionLinks = {};
-        // Track mega links per resolution for bypass feature
-        let resolutionMegaLinks = {};
 
-        for (let i = 0; i < lines.length; i++) {
-            let line = lines[i];
+        // URL regex — matches http(s) URLs up to whitespace
+        const linkRegex = /(https?:\/\/[^\s]+)/g;
 
-            // Match resolution header like "--- 720p [Total of 27.64 GB] ---"
-            const resMatch = line.trim().match(/^---\s+(.*?)\s+---/);
-            if (resMatch) {
-                currentResolution = resMatch[1];
-                if (!resolutionLinks[currentResolution]) {
-                    resolutionLinks[currentResolution] = [];
-                }
-                if (!resolutionMegaLinks[currentResolution]) {
-                    resolutionMegaLinks[currentResolution] = [];
-                }
-                let spanEscaped = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                let copyBypassBtnHtml = '';
-                if (config.megaBypass) {
-                    copyBypassBtnHtml = ` <button class="sinflix-copy-bypass-btn" data-bypass-res="${currentResolution}">Copy Bypass Links</button>`;
-                }
-                newHtml += `<span class="sinflix-res-header">${spanEscaped.trim()} <button class="sinflix-copy-btn" data-res="${currentResolution}">Copy All Links</button>${copyBypassBtnHtml}</span>\n`;
-                continue;
-            }
+        /**
+         * Process a plain-text string and return a DocumentFragment containing:
+         *  - resolution-header <span> elements (with Copy buttons) for "--- ... ---" lines
+         *  - <a> elements for URLs (+ optional mega bypass circles)
+         *  - plain Text nodes for everything else
+         * Preserves all original whitespace / newlines.
+         */
+        function processTextContent(text) {
+            const fragment = document.createDocumentFragment();
+            const lines = text.split('\n');
 
-            // Escape HTML
-            let escapedLine = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            lines.forEach((line, lineIdx) => {
+                // --- Resolution header line ---
+                const resMatch = line.trim().match(/^---\s+(.*?)\s+---/);
+                if (resMatch) {
+                    currentResolution = resMatch[1];
+                    if (!resolutionLinks[currentResolution]) resolutionLinks[currentResolution] = [];
+                    if (!resolutionMegaLinks[currentResolution]) resolutionMegaLinks[currentResolution] = [];
 
-            // Convert links to hyperlinks
-            const linkRegex = /(https?:\/\/[^\s]+)/g;
-            let processedLine = escapedLine.replace(linkRegex, (url) => {
-                // Decode previously escaped chars for the actual href value and storage
-                let cleanUrl = url.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/"/g, '%22');
-                if (currentResolution) {
-                    resolutionLinks[currentResolution].push(cleanUrl);
-                    // Track mega links separately
-                    if (cleanUrl.includes('mega.nz/file/') && currentResolution) {
-                        resolutionMegaLinks[currentResolution].push(cleanUrl);
+                    const resSpan = document.createElement('span');
+                    resSpan.className = 'sinflix-res-header';
+
+                    const textNode = document.createTextNode(line.trim() + ' ');
+                    resSpan.appendChild(textNode);
+
+                    const copyBtn = document.createElement('button');
+                    copyBtn.className = 'sinflix-copy-btn';
+                    copyBtn.dataset.res = currentResolution;
+                    copyBtn.textContent = 'Copy All Links';
+                    resSpan.appendChild(copyBtn);
+
+                    if (config.megaBypass) {
+                        resSpan.appendChild(document.createTextNode(' '));
+                        const bypassBtn = document.createElement('button');
+                        bypassBtn.className = 'sinflix-copy-bypass-btn';
+                        bypassBtn.dataset.bypassRes = currentResolution;
+                        bypassBtn.textContent = 'Copy Bypass Links';
+                        resSpan.appendChild(bypassBtn);
                     }
+
+                    fragment.appendChild(resSpan);
+                    fragment.appendChild(document.createTextNode('\n'));
+                    return;
                 }
 
-                // If it's a mega link and bypass is enabled, append a grey circle after the anchor
-                let megaCircleHtml = '';
-                if (config.megaBypass && cleanUrl.includes('mega.nz/file/')) {
-                    const escapedCleanUrl = cleanUrl.replace(/"/g, '&quot;');
-                    megaCircleHtml = `<span class="sinflix-mega-circle" title="Bypass & download via mega.wldbs.workers.dev" data-mega-url="${escapedCleanUrl}"></span>`;
+                // --- Normal line: split on URLs ---
+                linkRegex.lastIndex = 0;
+                let lastIndex = 0;
+                let match;
+                while ((match = linkRegex.exec(line)) !== null) {
+                    // Text before the URL
+                    if (match.index > lastIndex) {
+                        fragment.appendChild(document.createTextNode(line.slice(lastIndex, match.index)));
+                    }
+
+                    const rawUrl = match[0];
+                    const cleanUrl = rawUrl.replace(/"/g, '%22');
+
+                    // Track links per resolution
+                    if (currentResolution) {
+                        resolutionLinks[currentResolution].push(cleanUrl);
+                        if (cleanUrl.includes('mega.nz/file/')) {
+                            resolutionMegaLinks[currentResolution].push(cleanUrl);
+                        }
+                    }
+
+                    // Create <a> element
+                    const anchor = document.createElement('a');
+                    anchor.href = cleanUrl;
+                    anchor.target = '_blank';
+                    anchor.rel = 'noopener noreferrer';
+                    anchor.textContent = rawUrl;
+                    fragment.appendChild(anchor);
+
+                    // Append bypass circle for mega links
+                    if (config.megaBypass && cleanUrl.includes('mega.nz/file/')) {
+                        const circle = document.createElement('span');
+                        circle.className = 'sinflix-mega-circle';
+                        circle.title = 'Bypass & download via mega.wldbs.workers.dev';
+                        circle.dataset.megaUrl = cleanUrl;
+                        fragment.appendChild(circle);
+                    }
+
+                    lastIndex = match.index + match[0].length;
                 }
 
-                return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer">${url}</a>${megaCircleHtml}`;
+                // Remaining text after last URL (or the whole line if no URL)
+                if (lastIndex < line.length) {
+                    fragment.appendChild(document.createTextNode(line.slice(lastIndex)));
+                }
+
+                // Re-add the newline that split() removed (skip after very last line)
+                if (lineIdx < lines.length - 1) {
+                    fragment.appendChild(document.createTextNode('\n'));
+                }
             });
 
-            newHtml += processedLine + '\n';
+            return fragment;
         }
 
-        preElement.innerHTML = newHtml;
+        // Walk child nodes of <pre>, replacing only Text nodes.
+        // Element nodes (Pygments <span class="gu"> etc.) are left untouched.
+        const childNodes = Array.from(preElement.childNodes);
+        for (const node of childNodes) {
+            if (node.nodeType === Node.TEXT_NODE) {
+                const fragment = processTextContent(node.textContent);
+                preElement.replaceChild(fragment, node);
+            }
+            // Element nodes: leave as-is to preserve syntax highlighting
+        }
 
         // --- Copy All Links buttons ---
         document.querySelectorAll('.sinflix-copy-btn').forEach(btn => {
@@ -2378,10 +2440,7 @@
             console.error('Sinflix Modifier error during immediate enhancement:', e);
         }
 
-        if (config.moveCurrentlyAiringToTop) {
-            setTimeout(() => reorderSections(), 0);
-            setTimeout(() => reorderSections(), 50);
-        }
+
 
         createSettingsUI();
         createFloatingButtons();
@@ -2395,21 +2454,16 @@
             }
         });
 
-        // Reduced retry attempts with faster intervals
-        const attempts = [100, 300, 800];
-        let successful = false;
-        attempts.forEach((delay) => {
-            setTimeout(() => {
-                if (!successful) {
-                    try {
-                        const result = enhancePageContent();
-                        if (result) successful = true;
-                    } catch (e) {
-                        console.error('Sinflix Modifier error during retry enhancement:', e);
-                    }
-                }
-            }, delay);
-        });
+        // Single late-fallback retry in case the MutationObserver missed the content
+        // (e.g. content was already in the DOM but not yet observed). Fires after
+        // the page is fully interactive to avoid blocking early user input.
+        setTimeout(() => {
+            try {
+                enhancePageContent();
+            } catch (e) {
+                console.error('Sinflix Modifier error during fallback enhancement:', e);
+            }
+        }, 1200);
 
         if (typeof MutationObserver !== 'undefined') {
             // Debounce: wait 150ms after the last mutation before processing.
@@ -2466,62 +2520,13 @@
         }
     }
 
-    // Initialize the script
-    // Immediate execution as soon as script loads
-    try {
-        enhancePageContent();
-    } catch (e) {
-        console.error('Sinflix Modifier error during immediate script execution:', e);
-    }
-
-    // Try immediate reordering as soon as script loads
-    if (config.moveCurrentlyAiringToTop) {
-        tryEarlyReorder();
-
-        // Reduced monitoring interval for faster response
-        const checkForContent = () => {
-            tryEarlyReorder();
-        };
-
-        // Check every 100ms — 5ms was too aggressive and blocked the main
-        // thread during load, causing clicks to be unresponsive.
-        const contentChecker = setInterval(() => {
-            const content = document.querySelector('.entry-text article');
-            if (content && content.dataset.sectionsReordered === 'true') {
-                clearInterval(contentChecker);
-            } else {
-                tryEarlyReorder();
-            }
-        }, 100);
-
-        // Stop checking after 3 seconds
-        setTimeout(() => clearInterval(contentChecker), 3000);
-    }
-
+    // Initialize the script — single entry point to avoid main-thread contention.
+    // Previously, enhancePageContent() was fired 5+ times simultaneously
+    // (script-start, readystatechange, DOMContentLoaded, setInterval × N),
+    // blocking the main thread for 1-2 s and making clicks/scrolls unresponsive.
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            if (config.moveCurrentlyAiringToTop) {
-                setTimeout(() => reorderSections(), 0);
-            }
-            initialize();
-        });
+        document.addEventListener('DOMContentLoaded', initialize);
     } else {
-        if (config.moveCurrentlyAiringToTop) {
-            setTimeout(() => reorderSections(), 0);
-        }
         initialize();
-    }
-
-    // Also set up immediate processing when document becomes interactive
-    if (document.readyState === 'loading') {
-        document.addEventListener('readystatechange', () => {
-            if (document.readyState === 'interactive') {
-                try {
-                    enhancePageContent();
-                } catch (e) {
-                    console.error('Sinflix Modifier error during interactive state:', e);
-                }
-            }
-        });
     }
 })();
