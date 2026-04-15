@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    hhttps://openuserjs.org/users/asurpbs
-// @version      26.4.15
+// @version      26.4.15.3
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links, copy-all-links per resolution, and Mega.nz bypass circles (click to instantly bypass & download, or copy all bypass links). On mega.nz file pages: floating bypass download button that skips Mega quota limits.
 // @license      MIT
 // @author       asurpbs
@@ -36,7 +36,7 @@
         // NEW: Add setting for SinFlix chat box button
         showChatBoxButton: GM_getValue('showChatBoxButton', true),
         // NEW: Add setting for chat box opening style, defaulting to 'tab'
-        chatBoxOpenStyle: GM_getValue('chatBoxOpenStyle', 'tab'),
+        chatBoxOpenStyle: GM_getValue('chatBoxOpenStyle', 'popup'),
         // NEW: pst.moe enhancements
         pstMoeEnhancements: GM_getValue('pstMoeEnhancements', true),
         // NEW: Google search keyword suffix
@@ -51,7 +51,9 @@
         // NEW: Mega.nz floating download button
         megaNzButton: GM_getValue('megaNzButton', true),
         // NEW: URL prefixes that trigger "Copy Links" button in pst.moe sections (one per line)
-        copyLinksPatterns: GM_getValue('copyLinksPatterns', 'https://mega.nz/')
+        copyLinksPatterns: GM_getValue('copyLinksPatterns', 'https://mega.nz/'),
+        // NEW: Top search bar with Dynamic Island animation
+        showTopSearchBar: GM_getValue('showTopSearchBar', true)
     };
 
     // --- Style Definitions ---
@@ -196,7 +198,18 @@
             opacity: 1;
         }
 
+        /* --- Rentry content box rounded corners --- */
+        .col-12.long-words {
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .entry-text {
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
         /* --- Settings Button --- */
+        /* Settings button is inside the search capsule when capsule is ON */
         #kdrama-settings-button {
             position: fixed;
             top: 20px;
@@ -204,7 +217,7 @@
             width: 40px;
             height: 40px;
             z-index: 10001;
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(50, 50, 50, 0.4);
             backdrop-filter: blur(6px);
             border-radius: 12px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.15);
@@ -214,11 +227,8 @@
             cursor: pointer;
             transition: background 0.3s ease;
         }
-        .dark-mode #kdrama-settings-button {
-            background: rgba(50, 50, 50, 0.4);
-        }
         #kdrama-settings-button:hover {
-            background: rgba(255, 255, 255, 0.35);
+            background: rgba(80, 80, 80, 0.6);
         }
 
         /* --- Modal Styles --- */
@@ -529,38 +539,61 @@
             background: #1142a0;
         }
 
-		.kdrama-circle {
-			display: inline-block;
-			width: 16px;
-			height: 16px;
-			border-radius: 50%;
-			border: none;
-			cursor: pointer;
-			box-shadow: 0 0 6px rgba(0,0,0,0.2);
-			vertical-align: middle;
-			/* Make circles dimmed by default */
-			opacity: 0.35;
-			/* Add smooth transition for opacity */
-			transition: transform 0.2s ease, opacity 0.2s ease;
-			margin-right: 4px;
-		}
-		.kdrama-circle:hover {
-			transform: scale(1.2);
-			/* Make circles bright on hover */
-			opacity: 1;
-		}
-        .google-circle {
-            background: linear-gradient(90deg, #1A73E8 0%, #186F65 100%);
-        }
-        .mdl-circle {
-            background: linear-gradient(90deg, #F0F2F5 0%, #E8EEF2 100%);
-            border: 2px solid #5C88DA;
-            box-shadow: 0 0 6px 2px rgba(75, 0, 130, 0.6);
-        }
         .kdrama-circle-container {
             display: inline-flex;
-            margin-right: 6px;
+            align-items: center;
+            gap: 3px;
+            margin-right: 5px;
             vertical-align: middle;
+            position: relative;
+            top: -1px;
+        }
+        .kdrama-circle {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 7px;
+            border: none;
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 700;
+            font-family: "Segoe UI", system-ui, sans-serif;
+            letter-spacing: -0.2px;
+            line-height: 1;
+            opacity: 0.28;
+            transition: opacity 0.18s ease, transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+            user-select: none;
+            flex-shrink: 0;
+        }
+        .kdrama-circle:hover {
+            opacity: 1;
+            transform: scale(1.18);
+        }
+        .google-circle {
+            background: rgba(66, 133, 244, 0.15);
+            color: #4285f4;
+            border: 1px solid rgba(66, 133, 244, 0.3);
+        }
+        .google-circle::after { content: "G"; }
+        .google-circle:hover {
+            background: #4285f4;
+            color: #fff;
+            border-color: #4285f4;
+            box-shadow: 0 2px 8px rgba(66, 133, 244, 0.45);
+        }
+        .mdl-circle {
+            background: rgba(0, 150, 136, 0.12);
+            color: #00897b;
+            border: 1px solid rgba(0, 150, 136, 0.28);
+        }
+        .mdl-circle::after { content: "M"; }
+        .mdl-circle:hover {
+            background: #00897b;
+            color: #fff;
+            border-color: #00897b;
+            box-shadow: 0 2px 8px rgba(0, 150, 136, 0.45);
         }
 
         /* --- Floating Buttons (Back to Top & Search) --- */
@@ -569,7 +602,8 @@
             width: 44px;
             height: 44px;
             border-radius: 50%;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            outline: none !important;
             background: rgba(30, 30, 30, 0.4);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
@@ -581,17 +615,20 @@
             z-index: 10003;
             user-select: none;
             transition: background-color 0.3s ease, opacity 0.3s ease, border 0.3s ease, bottom 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
-            opacity: 0; /* Initially hidden, except for search button */
-            pointer-events: none; /* Disable interaction when hidden */
+            opacity: 0;
+            pointer-events: none;
             right: 20px;
         }
         .kdrama-float-button.show {
             opacity: 1;
             pointer-events: auto; /* Enable interaction when shown */
         }
-        .kdrama-float-button:hover {
+        .kdrama-float-button:hover,
+        .kdrama-float-button:focus,
+        .kdrama-float-button:active {
             background: rgba(50, 50, 50, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.35) !important;
+            outline: none !important;
             transform: scale(1.05);
             transition: background-color 0.3s ease, opacity 0.3s ease, border 0.3s ease, bottom 0.5s cubic-bezier(0.4, 0.0, 0.2, 1), transform 0.2s ease;
         }
@@ -642,7 +679,236 @@
             border-color: rgba(30, 144, 255, 0.3);
         }
 
-        /* --- Search Modal --- */
+        /* --- Top Search Bar (Dynamic Island) --- */
+        #sfx-top-searchbar-wrap {
+            position: fixed;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10006;
+            /* Dynamic Island pill shape */
+            width: min(560px, calc(100vw - 32px));
+            height: 48px;
+            border-radius: 28px;
+            background: rgba(18, 18, 22, 0.82);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255,255,255,0.13);
+            box-shadow: 0 4px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 10px;
+            overflow: hidden;
+            cursor: text;
+            /* Transition for all morphing */
+            transition:
+                width 0.55s cubic-bezier(0.34, 1.38, 0.64, 1),
+                height 0.55s cubic-bezier(0.34, 1.38, 0.64, 1),
+                border-radius 0.55s cubic-bezier(0.34, 1.38, 0.64, 1),
+                background 0.4s ease,
+                box-shadow 0.4s ease,
+                top 0.55s cubic-bezier(0.34, 1.38, 0.64, 1),
+                opacity 0.35s ease;
+        }
+        #sfx-top-searchbar-wrap.sfx-collapsed {
+            width: 192px;
+            height: 34px;
+            border-radius: 17px;
+            border: 1px solid rgba(255,255,255,0.07);
+            background: rgba(22, 22, 26, 0.72);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            cursor: pointer;
+            box-shadow: none;
+            padding: 0 14px 0 10px;
+            justify-content: center;
+            gap: 6px;
+            overflow: hidden;
+        }
+        #sfx-top-searchbar-wrap.sfx-collapsed:hover {
+            background: rgba(38, 38, 44, 0.82);
+            border-color: rgba(255,255,255,0.13);
+            transform: translateX(-50%) scale(1.03);
+        }
+        #sfx-top-searchbar-wrap.sfx-expanding {
+            /* Briefly scale up a touch during expansion */
+        }
+        #sfx-top-search-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: rgba(255,255,255,0.55);
+            pointer-events: none;
+            transition: color 0.3s ease;
+        }
+        #sfx-top-searchbar-wrap:hover #sfx-top-search-icon {
+            color: rgba(255,255,255,0.85);
+        }
+        /* Collapsed: icon stays in normal flex flow, centred by justify-content on parent */
+        #sfx-top-searchbar-wrap.sfx-collapsed #sfx-top-search-icon {
+            color: rgba(255,255,255,0.38);
+            flex-shrink: 0;
+        }
+        #sfx-top-searchbar-wrap.sfx-collapsed #sfx-top-search-icon svg {
+            width: 13px;
+            height: 13px;
+        }
+        #sfx-top-searchbar-wrap.sfx-collapsed:hover #sfx-top-search-icon {
+            color: rgba(255,255,255,0.65);
+        }
+        /* Collapsed label */
+        #sfx-top-search-label {
+            font-size: 12px;
+            font-weight: 400;
+            font-family: "Segoe UI", system-ui, sans-serif;
+            color: rgba(255,255,255,0.32);
+            white-space: nowrap;
+            letter-spacing: 0.3px;
+            /* Hidden in expanded state — use max-width so transition works (auto is not animatable) */
+            max-width: 0;
+            opacity: 0;
+            overflow: hidden;
+            pointer-events: none;
+            transition: opacity 0.35s ease, max-width 0.45s cubic-bezier(0.34, 1.38, 0.64, 1);
+        }
+        #sfx-top-searchbar-wrap.sfx-collapsed #sfx-top-search-label {
+            max-width: 100px;
+            opacity: 1;
+        }
+        #sfx-top-searchbar-wrap.sfx-collapsed:hover #sfx-top-search-label {
+            color: rgba(255,255,255,0.62);
+        }
+        #sfx-top-search-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #fff;
+            font-size: 15px;
+            font-family: "Segoe UI", system-ui, sans-serif;
+            caret-color: #a78bfa;
+            min-width: 0;
+            transition: opacity 0.3s ease, width 0.4s ease;
+        }
+        #sfx-top-search-input::placeholder {
+            color: rgba(255,255,255,0.38);
+        }
+        #sfx-top-searchbar-wrap.sfx-collapsed #sfx-top-search-input {
+            opacity: 0;
+            pointer-events: none;
+            width: 0;
+            overflow: hidden;
+            flex: none;
+            padding: 0;
+            margin: 0;
+        }
+        #sfx-top-search-count {
+            font-size: 12px;
+            color: rgba(255,255,255,0.45);
+            white-space: nowrap;
+            flex-shrink: 0;
+            transition: opacity 0.3s ease, width 0.4s ease;
+        }
+        #sfx-top-searchbar-wrap.sfx-collapsed #sfx-top-search-count {
+            opacity: 0;
+            pointer-events: none;
+            width: 0;
+            overflow: hidden;
+            flex: none;
+            padding: 0;
+            margin: 0;
+        }
+        .sfx-top-nav-btn {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.55);
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background 0.2s, color 0.2s, opacity 0.3s, width 0.4s;
+        }
+        .sfx-top-nav-btn:hover:not(:disabled) {
+            background: rgba(255,255,255,0.12);
+            color: #fff;
+        }
+        .sfx-top-nav-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+        #sfx-top-searchbar-wrap.sfx-collapsed .sfx-top-nav-btn {
+            opacity: 0;
+            pointer-events: none;
+            width: 0;
+            overflow: hidden;
+            flex: none;
+            padding: 0;
+            margin: 0;
+        }
+        #sfx-top-search-close {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.45);
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+            flex-shrink: 0;
+            padding: 0 2px;
+            transition: color 0.2s, opacity 0.3s, width 0.4s;
+        }
+        #sfx-top-search-close:hover { color: #fff; }
+        #sfx-top-searchbar-wrap.sfx-collapsed #sfx-top-search-close {
+            opacity: 0;
+            pointer-events: none;
+            width: 0;
+            overflow: hidden;
+            flex: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        /* --- Capsule action buttons (settings + chat) --- */
+        .sfx-cap-sep {
+            display: none;
+        }
+        .sfx-cap-action {
+            background: none !important;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+            -webkit-appearance: none;
+            color: rgba(255,255,255,0.38);
+            width: 26px;
+            height: 26px;
+            border-radius: 0 !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+            padding: 0;
+            transition: color 0.18s ease;
+        }
+        .sfx-cap-action:hover,
+        .sfx-cap-action:focus,
+        .sfx-cap-action:active {
+            background: none !important;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+            color: rgba(255,255,255,0.85);
+        }
+        .sfx-cap-action svg {
+            width: 14px;
+            height: 14px;
+        }
+        /* In expanded state: shrink separator+actions slightly so they don't dominate */
+        #sfx-top-searchbar-wrap:not(.sfx-collapsed) .sfx-cap-sep {
+            height: 14px;
+        }
         #kdrama-search-modal {
             position: fixed;
             bottom: 0;
@@ -1752,11 +2018,7 @@
                     e.preventDefault();
                     e.stopPropagation();
 
-                    if (config.chatBoxOpenStyle === 'popup') {
-                        openInCenter(link.href, 'sinflix_chat');
-                    } else {
-                        window.open(link.href, '_blank');
-                    }
+                    openInCenter(link.href, 'sinflix_chat');
                 });
             }
             // For all other links, leave them as they are (normal behavior)
@@ -1892,7 +2154,10 @@
         const settingsButton = document.createElement('div');
         settingsButton.id = 'kdrama-settings-button';
         settingsButton.innerHTML = `<svg fill="currentColor" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>`;
-        document.body.appendChild(settingsButton);
+        // Only show the fixed settings button when the top search capsule is OFF
+        if (!config.showTopSearchBar) {
+            document.body.appendChild(settingsButton);
+        }
 
         const modal = document.createElement('div');
         modal.id = 'kdrama-settings-modal';
@@ -1998,6 +2263,17 @@
                             </div>
                             <label class="kdrama-toggle-switch">
                                 <input type="checkbox" id="setting-move-airing" ${config.moveCurrentlyAiringToTop ? 'checked' : ''}>
+                                <span class="kdrama-toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="kdrama-toggle-item">
+                            <div class="kdrama-toggle-info">
+                                <div class="kdrama-toggle-label">Top Search Bar</div>
+                                <div class="kdrama-toggle-description">Show a Dynamic Island-style search bar at the top. Morphs into a circle icon after 5s or on scroll</div>
+                            </div>
+                            <label class="kdrama-toggle-switch">
+                                <input type="checkbox" id="setting-top-searchbar" ${config.showTopSearchBar ? 'checked' : ''}>
                                 <span class="kdrama-toggle-slider"></span>
                             </label>
                         </div>
@@ -2261,6 +2537,9 @@ https://fileditchfiles.me/">${config.copyLinksPatterns.replace(/&/g,'&amp;').rep
             const customSchemeEl = document.getElementById('setting-buzz-custom-scheme');
             if (customSchemeEl) GM_setValue('buzzCustomScheme', customSchemeEl.value);
 
+            // NEW: Top search bar toggle
+            GM_setValue('showTopSearchBar', document.getElementById('setting-top-searchbar').checked);
+
             location.reload();
         });
     }
@@ -2278,9 +2557,9 @@ https://fileditchfiles.me/">${config.copyLinksPatterns.replace(/&/g,'&amp;').rep
         backToTopBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display: block; margin: auto;"><polyline points="6 15 12 9 18 15"></polyline></svg>`;
         document.body.appendChild(backToTopBtn);
 
-        // NEW: Create chat box button if enabled
+        // Chat button: only show as floating button when top search capsule is OFF
         let chatBtn = null;
-        if (config.showChatBoxButton) {
+        if (config.showChatBoxButton && !config.showTopSearchBar) {
             chatBtn = document.createElement('button');
             chatBtn.id = 'kdrama-chat-button';
             chatBtn.className = 'kdrama-float-button show';
@@ -2349,16 +2628,307 @@ https://fileditchfiles.me/">${config.copyLinksPatterns.replace(/&/g,'&amp;').rep
         if (config.showChatBoxButton && chatBtn) {
             chatBtn.addEventListener('click', () => {
                 const chatUrl = 'https://my.cbox.ws/sin-flix';
-                if (config.chatBoxOpenStyle === 'popup') {
-                    openInCenter(chatUrl, 'sinflix_chat');
-                } else {
-                    window.open(chatUrl, '_blank');
-                }
+                openInCenter(chatUrl, 'sinflix_chat');
             });
         }
-
-
     }
+
+    // --- Top Search Bar (Dynamic Island) ---
+    function createTopSearchBar() {
+        if (!config.showTopSearchBar) return;
+
+        // The wrapper pill/circle
+        const wrap = document.createElement('div');
+        wrap.id = 'sfx-top-searchbar-wrap';
+
+        // Search icon
+        const iconEl = document.createElement('span');
+        iconEl.id = 'sfx-top-search-icon';
+        iconEl.innerHTML = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
+        wrap.appendChild(iconEl);
+
+        // Collapsed label (hidden when expanded, visible when collapsed)
+        const labelEl = document.createElement('span');
+        labelEl.id = 'sfx-top-search-label';
+        labelEl.textContent = 'Search';
+        wrap.appendChild(labelEl);
+
+        // Text input
+        const input = document.createElement('input');
+        input.id = 'sfx-top-search-input';
+        input.type = 'text';
+        input.placeholder = 'Search on page…';
+        input.setAttribute('autocomplete', 'off');
+        input.setAttribute('spellcheck', 'false');
+        wrap.appendChild(input);
+
+        // Match counter
+        const counter = document.createElement('span');
+        counter.id = 'sfx-top-search-count';
+        wrap.appendChild(counter);
+
+        // Prev / Next buttons
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'sfx-top-nav-btn';
+        prevBtn.title = 'Previous match';
+        prevBtn.disabled = true;
+        prevBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="18 15 12 9 6 15"/></svg>`;
+        wrap.appendChild(prevBtn);
+
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'sfx-top-nav-btn';
+        nextBtn.title = 'Next match';
+        nextBtn.disabled = true;
+        nextBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>`;
+        wrap.appendChild(nextBtn);
+
+        // Close / collapse button
+        const closeBtn = document.createElement('button');
+        closeBtn.id = 'sfx-top-search-close';
+        closeBtn.title = 'Dismiss search bar';
+        closeBtn.innerHTML = '&times;';
+        wrap.appendChild(closeBtn);
+
+        // Separator between search controls and utility icons
+        const capSep = document.createElement('span');
+        capSep.className = 'sfx-cap-sep';
+        wrap.appendChild(capSep);
+
+        // Settings icon button (inside capsule)
+        const capSettings = document.createElement('button');
+        capSettings.className = 'sfx-cap-action';
+        capSettings.title = 'Settings';
+        capSettings.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>`;
+        capSettings.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const modal = document.getElementById('kdrama-settings-modal');
+            if (modal) { modal.style.display = 'flex'; setTimeout(() => modal.classList.add('show'), 10); }
+        });
+        wrap.appendChild(capSettings);
+
+        // Chat icon button (inside capsule, only if enabled)
+        if (config.showChatBoxButton) {
+            const capChat = document.createElement('button');
+            capChat.className = 'sfx-cap-action';
+            capChat.title = 'SinFlix Chat';
+            capChat.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"></path></svg>`;
+            capChat.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const chatUrl = 'https://my.cbox.ws/sin-flix';
+                openInCenter(chatUrl, 'sinflix_chat');
+            });
+            wrap.appendChild(capChat);
+        }
+
+        document.body.appendChild(wrap);
+
+        // ---- State: start collapsed ----
+        let isCollapsed = true;
+        wrap.classList.add('sfx-collapsed');
+        let sfxHighlights = [];
+        let sfxCurrentIdx = -1;
+
+        // ---- Collapse / expand helpers ----
+        function collapse() {
+            if (isCollapsed) return;
+            isCollapsed = true;
+            wrap.classList.add('sfx-collapsed');
+            input.blur();
+        }
+
+        function expand() {
+            if (!isCollapsed) return;
+            isCollapsed = false;
+            wrap.classList.remove('sfx-collapsed');
+            // Small bounce feedback
+            wrap.classList.add('sfx-expanding');
+            setTimeout(() => wrap.classList.remove('sfx-expanding'), 600);
+            // Focus input after animation settles
+            setTimeout(() => input.focus(), 200);
+        }
+
+        // ---- Search highlight logic ----
+        function clearSfxHighlights() {
+            sfxHighlights.forEach(el => {
+                const parent = el.parentNode;
+                if (parent) {
+                    parent.replaceChild(document.createTextNode(el.textContent), el);
+                    parent.normalize();
+                }
+            });
+            sfxHighlights = [];
+            sfxCurrentIdx = -1;
+        }
+
+        function runSfxSearch(query) {
+            clearSfxHighlights();
+
+            if (!query || query.length < 1) {
+                counter.textContent = '';
+                prevBtn.disabled = true;
+                nextBtn.disabled = true;
+                return;
+            }
+
+            const lq = query.toLowerCase();
+
+            // Only search inside the article content (drama list)
+            const article = document.querySelector('.entry-text article');
+            if (!article) {
+                counter.textContent = 'No content';
+                return;
+            }
+
+            // Walk text nodes inside the article, skipping links and script/style
+            const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT, {
+                acceptNode: n => {
+                    const el = n.parentElement;
+                    if (!el) return NodeFilter.FILTER_REJECT;
+                    const tag = el.tagName;
+                    if (['SCRIPT','STYLE','NOSCRIPT','A'].includes(tag)) return NodeFilter.FILTER_REJECT;
+                    if (el.closest('a')) return NodeFilter.FILTER_REJECT; // skip nested link text
+                    return n.textContent.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+                }
+            });
+
+            const textNodes = [];
+            let node;
+            while ((node = walker.nextNode())) textNodes.push(node);
+
+            textNodes.forEach(tn => {
+                const fullText = tn.textContent;
+                // Process line by line — only highlight within drama name lines
+                const lines = fullText.split('\n');
+                let anyMatch = false;
+                const frag = document.createDocumentFragment();
+
+                lines.forEach((line, lineIdx) => {
+                    const dramaName = extractDramaName(line);
+                    if (dramaName && dramaName.toLowerCase().includes(lq)) {
+                        // This line has a drama name that matches — highlight occurrences of query
+                        const lLine = line.toLowerCase();
+                        let last = 0;
+                        let pos = lLine.indexOf(lq);
+                        while (pos !== -1) {
+                            if (pos > last) frag.appendChild(document.createTextNode(line.slice(last, pos)));
+                            const mark = document.createElement('mark');
+                            mark.className = 'kdrama-highlight';
+                            mark.textContent = line.slice(pos, pos + lq.length);
+                            frag.appendChild(mark);
+                            sfxHighlights.push(mark);
+                            last = pos + lq.length;
+                            pos = lLine.indexOf(lq, last);
+                        }
+                        if (last < line.length) frag.appendChild(document.createTextNode(line.slice(last)));
+                        anyMatch = true;
+                    } else {
+                        frag.appendChild(document.createTextNode(line));
+                    }
+                    // Re-add the newline between lines (but not after the very last)
+                    if (lineIdx < lines.length - 1) frag.appendChild(document.createTextNode('\n'));
+                });
+
+                if (anyMatch && tn.parentNode) tn.parentNode.replaceChild(frag, tn);
+            });
+
+            if (sfxHighlights.length === 0) {
+                counter.textContent = 'No results';
+                prevBtn.disabled = true;
+                nextBtn.disabled = true;
+            } else {
+                sfxCurrentIdx = 0;
+                jumpToSfxMatch(0);
+                prevBtn.disabled = false;
+                nextBtn.disabled = false;
+            }
+        }
+
+        function jumpToSfxMatch(idx) {
+            sfxHighlights.forEach((el, i) => el.classList.toggle('current', i === idx));
+            const el = sfxHighlights[idx];
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                counter.textContent = `${idx + 1} / ${sfxHighlights.length}`;
+            }
+        }
+
+        // ---- Events ----
+        let searchDebounce = null;
+        const triggerSearch = () => {
+            clearTimeout(searchDebounce);
+            searchDebounce = setTimeout(() => runSfxSearch(input.value.trim()), 280);
+        };
+
+        input.addEventListener('input', triggerSearch);
+
+        // Collapse on blur only when no active search results.
+        // While results are shown the user needs the bar to navigate between them.
+        input.addEventListener('blur', e => {
+            if (sfxHighlights.length > 0) return;      // keep open while navigating results
+            if (wrap.contains(e.relatedTarget)) return; // keep open when focusing bar buttons
+            collapse();
+        });
+
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                if (sfxHighlights.length === 0) return;
+                sfxCurrentIdx = e.shiftKey
+                    ? (sfxCurrentIdx - 1 + sfxHighlights.length) % sfxHighlights.length
+                    : (sfxCurrentIdx + 1) % sfxHighlights.length;
+                jumpToSfxMatch(sfxCurrentIdx);
+            } else if (e.key === 'Escape') {
+                collapse();
+            }
+        });
+
+        prevBtn.addEventListener('click', () => {
+            if (sfxHighlights.length === 0) return;
+            sfxCurrentIdx = (sfxCurrentIdx - 1 + sfxHighlights.length) % sfxHighlights.length;
+            jumpToSfxMatch(sfxCurrentIdx);
+            input.focus();
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (sfxHighlights.length === 0) return;
+            sfxCurrentIdx = (sfxCurrentIdx + 1) % sfxHighlights.length;
+            jumpToSfxMatch(sfxCurrentIdx);
+            input.focus();
+        });
+
+        closeBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            clearSfxHighlights();
+            input.value = '';
+            counter.textContent = '';
+            prevBtn.disabled = true;
+            nextBtn.disabled = true;
+            collapse();
+        });
+
+        // Clicking the collapsed circle expands it
+        wrap.addEventListener('click', e => {
+            if (isCollapsed) {
+                expand();
+            }
+        });
+
+        // Collapse on user scroll only when no active search results.
+        let scrollListenerActive = false;
+        setTimeout(() => { scrollListenerActive = true; }, 300);
+        window.addEventListener('scroll', () => {
+            if (!scrollListenerActive) return;
+            if (sfxHighlights.length > 0) return; // keep open while navigating results
+            if (!isCollapsed) collapse();
+        }, { passive: true });
+
+        // Clicking anywhere outside the bar always collapses it (even with active results).
+        document.addEventListener('click', e => {
+            if (!isCollapsed && !wrap.contains(e.target)) {
+                collapse();
+            }
+        }, { capture: true, passive: true });
+    }
+
 
     // --- Mega.nz Floating Bypass Button ---
     function enhanceMegaNzPage() {
@@ -2494,6 +3064,7 @@ https://fileditchfiles.me/">${config.copyLinksPatterns.replace(/&/g,'&amp;').rep
 
         createSettingsUI();
         createFloatingButtons();
+        createTopSearchBar();
 
         const settingsModal = document.getElementById('kdrama-settings-modal');
         window.addEventListener('scroll', () => {
