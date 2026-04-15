@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    hhttps://openuserjs.org/users/asurpbs
-// @version      26.4.07
+// @version      26.4.15
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links, copy-all-links per resolution, and Mega.nz bypass circles (click to instantly bypass & download, or copy all bypass links). On mega.nz file pages: floating bypass download button that skips Mega quota limits.
 // @license      MIT
 // @author       asurpbs
@@ -49,7 +49,9 @@
         // NEW: Mega.nz bypass
         megaBypass: GM_getValue('megaBypass', true),
         // NEW: Mega.nz floating download button
-        megaNzButton: GM_getValue('megaNzButton', true)
+        megaNzButton: GM_getValue('megaNzButton', true),
+        // NEW: URL prefixes that trigger "Copy Links" button in pst.moe sections (one per line)
+        copyLinksPatterns: GM_getValue('copyLinksPatterns', 'https://mega.nz/')
     };
 
     // --- Style Definitions ---
@@ -1122,6 +1124,33 @@
         // URL regex — matches http(s) URLs up to whitespace
         const linkRegex = /(https?:\/\/[^\s]+)/g;
 
+        // --- Pre-scan: determine which resolution sections have links matching user-configured patterns ---
+        // We need this BEFORE building the DOM so we know whether to show the "Copy Links" button
+        // on each resolution header at render time.
+        const copyPatterns = config.copyLinksPatterns
+            .split('\n')
+            .map(p => p.trim())
+            .filter(p => p.length > 0);
+
+        const resolutionsWithMega = new Set();  // sections with any pattern-matching link
+        const resolutionsWithLinks = new Set();
+        {
+            let scanRes = null;
+            const scanLines = preElement.textContent.split('\n');
+            for (const scanLine of scanLines) {
+                const rMatch = scanLine.trim().match(/^---\s+(.*?)\s+---/);
+                if (rMatch) { scanRes = rMatch[1]; continue; }
+                if (!scanRes) continue;
+                const urlMatch = scanLine.match(/(https?:\/\/[^\s]+)/g);
+                if (urlMatch) {
+                    resolutionsWithLinks.add(scanRes);
+                    if (copyPatterns.length > 0 && urlMatch.some(u => copyPatterns.some(p => u.includes(p)))) {
+                        resolutionsWithMega.add(scanRes);
+                    }
+                }
+            }
+        }
+
         /**
          * Process a plain-text string and return a DocumentFragment containing:
          *  - resolution-header <span> elements (with Copy buttons) for "--- ... ---" lines
@@ -1147,19 +1176,22 @@
                     const textNode = document.createTextNode(line.trim() + ' ');
                     resSpan.appendChild(textNode);
 
-                    const copyBtn = document.createElement('button');
-                    copyBtn.className = 'sinflix-copy-btn';
-                    copyBtn.dataset.res = currentResolution;
-                    copyBtn.textContent = 'Copy All Links';
-                    resSpan.appendChild(copyBtn);
+                    // Only add buttons for sections that have pattern-matching links
+                    if (resolutionsWithMega.has(currentResolution)) {
+                        const copyBtn = document.createElement('button');
+                        copyBtn.className = 'sinflix-copy-btn';
+                        copyBtn.dataset.res = currentResolution;
+                        copyBtn.textContent = 'Copy All Links';
+                        resSpan.appendChild(copyBtn);
 
-                    if (config.megaBypass) {
-                        resSpan.appendChild(document.createTextNode(' '));
-                        const bypassBtn = document.createElement('button');
-                        bypassBtn.className = 'sinflix-copy-bypass-btn';
-                        bypassBtn.dataset.bypassRes = currentResolution;
-                        bypassBtn.textContent = 'Copy Bypass Links';
-                        resSpan.appendChild(bypassBtn);
+                        if (config.megaBypass) {
+                            resSpan.appendChild(document.createTextNode(' '));
+                            const bypassBtn = document.createElement('button');
+                            bypassBtn.className = 'sinflix-copy-bypass-btn';
+                            bypassBtn.dataset.bypassRes = currentResolution;
+                            bypassBtn.textContent = 'Copy Bypass Links';
+                            resSpan.appendChild(bypassBtn);
+                        }
                     }
 
                     fragment.appendChild(resSpan);
@@ -1233,21 +1265,22 @@
             // Element nodes: leave as-is to preserve syntax highlighting
         }
 
-        // --- Copy All Links buttons ---
+        // --- Copy All Links buttons (only in pattern-matching sections) ---
         document.querySelectorAll('.sinflix-copy-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const res = e.target.getAttribute('data-res');
-                const links = resolutionLinks[res];
-                if (links && links.length > 0) {
-                    const textToCopy = links.join('\n');
-                    showNotification('Copying links. This may take a moment...', 'info');
-                    navigator.clipboard.writeText(textToCopy).then(() => {
-                        showNotification('All links copied successfully!', 'success');
+                const allLinks = resolutionLinks[res] || [];
+                // Copy only the pattern-matching links from this section
+                const matchingLinks = copyPatterns.length > 0
+                    ? allLinks.filter(u => copyPatterns.some(p => u.includes(p)))
+                    : allLinks;
+                if (matchingLinks.length > 0) {
+                    showNotification('Copying links...', 'info');
+                    navigator.clipboard.writeText(matchingLinks.join('\n')).then(() => {
+                        showNotification(`${matchingLinks.length} link(s) copied!`, 'success');
                         const oldText = e.target.innerText;
                         e.target.innerText = 'Copied!';
-                        setTimeout(() => {
-                            e.target.innerText = oldText;
-                        }, 2000);
+                        setTimeout(() => { e.target.innerText = oldText; }, 2000);
                     }).catch(() => {
                         showNotification('Failed to copy links!', 'error');
                     });
@@ -1255,26 +1288,33 @@
             });
         });
 
-        // --- Mega bypass: Copy All Bypass Links buttons ---
+        // --- Copy Links buttons (shows for sections with pattern-matching URLs) ---
         if (config.megaBypass) {
             document.querySelectorAll('.sinflix-copy-bypass-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const res = e.target.getAttribute('data-bypass-res');
-                    const megaLinks = resolutionMegaLinks[res];
-                    if (!megaLinks || megaLinks.length === 0) {
-                        showNotification('No Mega links found in this section.', 'error');
+                    // Collect all links in this section that match any configured pattern
+                    const allLinks = resolutionLinks[res] || [];
+                    const matchingLinks = copyPatterns.length > 0
+                        ? allLinks.filter(u => copyPatterns.some(p => u.includes(p)))
+                        : allLinks;
+                    if (matchingLinks.length === 0) {
+                        showNotification('No matching links found in this section.', 'error');
                         return;
                     }
-                    const bypassLinks = megaLinks.map(url => getMegaBypassUrl(url));
-                    const textToCopy = bypassLinks.join('\n');
-                    showNotification('Copying bypass links...', 'info');
+                    // For mega.nz links, use the bypass transform; for others copy as-is
+                    const linksToCopy = matchingLinks.map(url =>
+                        url.includes('mega.nz/file/') ? getMegaBypassUrl(url) : url
+                    );
+                    const textToCopy = linksToCopy.join('\n');
+                    showNotification('Copying links...', 'info');
                     navigator.clipboard.writeText(textToCopy).then(() => {
-                        showNotification(`${bypassLinks.length} bypass link(s) copied!`, 'success');
+                        showNotification(`${linksToCopy.length} link(s) copied!`, 'success');
                         const oldText = e.target.innerText;
                         e.target.innerText = 'Copied!';
                         setTimeout(() => { e.target.innerText = oldText; }, 2000);
                     }).catch(() => {
-                        showNotification('Failed to copy bypass links!', 'error');
+                        showNotification('Failed to copy links!', 'error');
                     });
                 });
             });
@@ -1986,12 +2026,21 @@
                         <div class="kdrama-toggle-item">
                             <div class="kdrama-toggle-info">
                                 <div class="kdrama-toggle-label">Mega.nz Link Bypass</div>
-                                <div class="kdrama-toggle-description">Add grey ● circle next to each Mega link to bypass & download instantly. Also adds "Copy Bypass Links" per section.</div>
+                                <div class="kdrama-toggle-description">Add grey ● circle next to each Mega link to bypass & download instantly. Also adds "Copy Links" per section.</div>
                             </div>
                             <label class="kdrama-toggle-switch">
                                 <input type="checkbox" id="setting-mega-bypass" ${config.megaBypass ? 'checked' : ''}>
                                 <span class="kdrama-toggle-slider"></span>
                             </label>
+                        </div>
+
+                        <div class="kdrama-setting-item" style="margin-bottom: 0;">
+                            <div class="kdrama-toggle-info" style="margin-bottom: 8px;">
+                                <div class="kdrama-toggle-label">"Copy Links" URL Patterns</div>
+                                <div class="kdrama-toggle-description">Show a "Copy Links" button only for sections containing these URLs. One prefix per line. Mega.nz links are copied via bypass; others are copied as-is.</div>
+                            </div>
+                            <textarea id="setting-copy-patterns" class="kdrama-text-input" rows="4" style="resize: vertical; font-family: monospace; font-size: 12px;" placeholder="https://mega.nz/
+https://fileditchfiles.me/">${config.copyLinksPatterns.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
                         </div>
                     </div>
 
@@ -2192,6 +2241,7 @@
             GM_setValue('pstMoeEnhancements', document.getElementById('setting-pstmoe').checked);
             GM_setValue('megaBypass', document.getElementById('setting-mega-bypass').checked);
             GM_setValue('megaNzButton', document.getElementById('setting-mega-nz-btn').checked);
+            GM_setValue('copyLinksPatterns', document.getElementById('setting-copy-patterns').value.trim());
 
             //  NEW: Save the selected radio button values
             const selectedStyle = document.querySelector('input[name="linkStyle"]:checked').value;
