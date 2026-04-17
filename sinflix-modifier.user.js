@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.4.17.1
+// @version      26.4.17
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links, copy-all-links per resolution, and Mega.nz bypass circles (click to instantly bypass & download, or copy all bypass links). On mega.nz file pages: floating bypass download button that skips Mega quota limits.
 // @license      MIT
 // @author       asurpbs
@@ -10,13 +10,12 @@
 // @match        https://pst.moe/paste/*
 // @match        https://buzzheavier.com/*
 // @match        https://mega.nz/file/*
+// @match        https://fileditchfiles.me/*
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_addStyle
 // @grant        GM_xmlhttpRequest
 // @run-at       document-start
-// @updateURL https://raw.githubusercontent.com/mthlpbs/sinflix-modifier/refs/heads/main/sinflix-modifier.user.js
-// @downloadURL https://raw.githubusercontent.com/mthlpbs/sinflix-modifier/refs/heads/main/sinflix-modifier.user.js
 // @copyright    2026, mthlpbs (https://greasyfork.org/en/users/1490967-asurpbs)
 // ==/UserScript==
 
@@ -51,7 +50,9 @@
         // NEW: Mega.nz floating download button
         megaNzButton: GM_getValue('megaNzButton', true),
         // NEW: Top search bar with Dynamic Island animation
-        showTopSearchBar: GM_getValue('showTopSearchBar', true)
+        showTopSearchBar: GM_getValue('showTopSearchBar', true),
+        // NEW: Resolve FileDitch direct download links and copy them
+        showFdCircle: GM_getValue('showFdCircle', true)
     };
 
     // --- Style Definitions ---
