@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
-// @namespace    https://greasyfork.org/en/users/1490967-mthlpbs
-// @version      26.4.15.5
+// @namespace    https://greasyfork.org/en/users/1490967-asurpbs
+// @version      26.4.17
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links, copy-all-links per resolution, and Mega.nz bypass circles (click to instantly bypass & download, or copy all bypass links). On mega.nz file pages: floating bypass download button that skips Mega quota limits.
 // @license      MIT
 // @author       asurpbs
@@ -17,7 +17,7 @@
 // @run-at       document-start
 // @updateURL https://raw.githubusercontent.com/mthlpbs/sinflix-modifier/refs/heads/main/sinflix-modifier.user.js
 // @downloadURL https://raw.githubusercontent.com/mthlpbs/sinflix-modifier/refs/heads/main/sinflix-modifier.user.js
-// @copyright    2026, mthlpbs (https://greasyfork.org/en/users/1490967-mthlpbs)
+// @copyright    2026, mthlpbs (https://greasyfork.org/en/users/1490967-asurpbs)
 // ==/UserScript==
 
 (function() {
