@@ -10,7 +10,6 @@
 // @match        https://pst.moe/paste/*
 // @match        https://buzzheavier.com/*
 // @match        https://mega.nz/file/*
-// @match        https://fileditchfiles.me/*
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_addStyle
@@ -52,9 +51,7 @@
         // NEW: Mega.nz floating download button
         megaNzButton: GM_getValue('megaNzButton', true),
         // NEW: Top search bar with Dynamic Island animation
-        showTopSearchBar: GM_getValue('showTopSearchBar', true),
-        // NEW: Resolve FileDitch direct download links and copy them
-        showFdCircle: GM_getValue('showFdCircle', true)
+        showTopSearchBar: GM_getValue('showTopSearchBar', true)
     };
 
     // --- Style Definitions ---
