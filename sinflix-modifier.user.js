@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.4.17
+// @version      26.4.17.1
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links, copy-all-links per resolution, and Mega.nz bypass circles (click to instantly bypass & download, or copy all bypass links). On mega.nz file pages: floating bypass download button that skips Mega quota limits.
 // @license      MIT
 // @author       asurpbs
@@ -50,8 +50,6 @@
         megaBypass: GM_getValue('megaBypass', true),
         // NEW: Mega.nz floating download button
         megaNzButton: GM_getValue('megaNzButton', true),
-        // NEW: URL prefixes that trigger "Copy Links" button in pst.moe sections (one per line)
-        copyLinksPatterns: GM_getValue('copyLinksPatterns', 'https://mega.nz/'),
         // NEW: Top search bar with Dynamic Island animation
         showTopSearchBar: GM_getValue('showTopSearchBar', true)
     };
@@ -184,6 +182,31 @@
             background: #34a853;
             border-color: #34a853;
             color: white;
+        }
+
+        /* --- FileDitch download circle --- */
+        .sinflix-fd-dl-circle {
+            display: inline-block;
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            background: #f97316;
+            cursor: pointer;
+            vertical-align: middle;
+            margin-left: 4px;
+            opacity: 0.55;
+            transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+            flex-shrink: 0;
+        }
+        .sinflix-fd-dl-circle:hover { opacity: 1; transform: scale(1.3); background: #fb923c; }
+        .sinflix-fd-dl-circle.fd-loading {
+            opacity: 0.35;
+            cursor: wait;
+            animation: fd-pulse 0.9s ease-in-out infinite alternate;
+        }
+        @keyframes fd-pulse {
+            from { opacity: 0.25; transform: scale(0.85); }
+            to   { opacity: 0.65; transform: scale(1.05); }
         }
 
         /* --- Prevent section flash on load --- */
@@ -1358,6 +1381,7 @@
         return `https://mega.wldbs.workers.dev/download?url=${btoa(megaUrl)}`;
     }
 
+
     // --- Helper: trigger background download without full page navigation ---
     function triggerDownload(url) {
         const a = document.createElement('a');
@@ -1390,16 +1414,11 @@
         // URL regex — matches http(s) URLs up to whitespace
         const linkRegex = /(https?:\/\/[^\s]+)/g;
 
-        // --- Pre-scan: determine which resolution sections have links matching user-configured patterns ---
-        // We need this BEFORE building the DOM so we know whether to show the "Copy Links" button
-        // on each resolution header at render time.
-        const copyPatterns = config.copyLinksPatterns
-            .split('\n')
-            .map(p => p.trim())
-            .filter(p => p.length > 0);
-
-        const resolutionsWithMega = new Set();  // sections with any pattern-matching link
+        // --- Pre-scan: detect which resolution sections contain mega.nz links ---
+        // This determines which header buttons to render before the DOM is built.
+        const resolutionsWithMega = new Set();
         const resolutionsWithLinks = new Set();
+        const resolutionMegaLinksMap = {};
         {
             let scanRes = null;
             const scanLines = preElement.textContent.split('\n');
@@ -1410,8 +1429,11 @@
                 const urlMatch = scanLine.match(/(https?:\/\/[^\s]+)/g);
                 if (urlMatch) {
                     resolutionsWithLinks.add(scanRes);
-                    if (copyPatterns.length > 0 && urlMatch.some(u => copyPatterns.some(p => u.includes(p)))) {
+                    const megaUrls = urlMatch.filter(u => u.includes('mega.nz/file/'));
+                    if (megaUrls.length > 0) {
                         resolutionsWithMega.add(scanRes);
+                        if (!resolutionMegaLinksMap[scanRes]) resolutionMegaLinksMap[scanRes] = [];
+                        resolutionMegaLinksMap[scanRes].push(...megaUrls);
                     }
                 }
             }
@@ -1442,7 +1464,7 @@
                     const textNode = document.createTextNode(line.trim() + ' ');
                     resSpan.appendChild(textNode);
 
-                    // Only add buttons for sections that have pattern-matching links
+                    // Show mega.nz copy buttons when section has mega links
                     if (resolutionsWithMega.has(currentResolution)) {
                         const copyBtn = document.createElement('button');
                         copyBtn.className = 'sinflix-copy-btn';
@@ -1503,6 +1525,15 @@
                         fragment.appendChild(circle);
                     }
 
+                    // Append download circle for FileDitch links
+                    if (config.showFdCircle && cleanUrl.includes('fileditchfiles.me')) {
+                        const dlCircle = document.createElement('span');
+                        dlCircle.className = 'sinflix-fd-dl-circle';
+                        dlCircle.title = '\u2b07 Download via FileDitch (auto-clicks download & closes)';
+                        dlCircle.dataset.fdUrl = cleanUrl;
+                        fragment.appendChild(dlCircle);
+                    }
+
                     lastIndex = match.index + match[0].length;
                 }
 
@@ -1531,19 +1562,29 @@
             // Element nodes: leave as-is to preserve syntax highlighting
         }
 
-        // --- Copy All Links buttons (only in pattern-matching sections) ---
+        if (config.showFdCircle) {
+            document.querySelectorAll('.sinflix-fd-dl-circle').forEach(circle => {
+                circle.addEventListener('click', () => {
+                    if (circle.classList.contains('fd-loading')) return;
+                    circle.classList.add('fd-loading');
+                    const w = window.open(circle.dataset.fdUrl + '#sfx=dl', '_blank',
+                        'width=900,height=650,menubar=no,toolbar=no,status=no,location=yes');
+                    showNotification('Opening FileDitch\u2026 will auto-download & close.', 'info', 5000);
+                    setTimeout(() => circle.classList.remove('fd-loading'), 18000);
+                    if (!w) showNotification('Popup blocked! Allow popups for pst.moe.', 'error', 6000);
+                });
+            });
+        }
+
         document.querySelectorAll('.sinflix-copy-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const res = e.target.getAttribute('data-res');
-                const allLinks = resolutionLinks[res] || [];
-                // Copy only the pattern-matching links from this section
-                const matchingLinks = copyPatterns.length > 0
-                    ? allLinks.filter(u => copyPatterns.some(p => u.includes(p)))
-                    : allLinks;
-                if (matchingLinks.length > 0) {
+                // Copy only the mega.nz links from this section
+                const megaLinks = resolutionMegaLinksMap[res] || [];
+                if (megaLinks.length > 0) {
                     showNotification('Copying links...', 'info');
-                    navigator.clipboard.writeText(matchingLinks.join('\n')).then(() => {
-                        showNotification(`${matchingLinks.length} link(s) copied!`, 'success');
+                    navigator.clipboard.writeText(megaLinks.join('\n')).then(() => {
+                        showNotification(`${megaLinks.length} link(s) copied!`, 'success');
                         const oldText = e.target.innerText;
                         e.target.innerText = 'Copied!';
                         setTimeout(() => { e.target.innerText = oldText; }, 2000);
@@ -1554,28 +1595,21 @@
             });
         });
 
-        // --- Copy Links buttons (shows for sections with pattern-matching URLs) ---
+        // --- Copy Bypass Links buttons ---
         if (config.megaBypass) {
             document.querySelectorAll('.sinflix-copy-bypass-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const res = e.target.getAttribute('data-bypass-res');
-                    // Collect all links in this section that match any configured pattern
-                    const allLinks = resolutionLinks[res] || [];
-                    const matchingLinks = copyPatterns.length > 0
-                        ? allLinks.filter(u => copyPatterns.some(p => u.includes(p)))
-                        : allLinks;
-                    if (matchingLinks.length === 0) {
-                        showNotification('No matching links found in this section.', 'error');
+                    const megaLinks = resolutionMegaLinksMap[res] || [];
+                    if (megaLinks.length === 0) {
+                        showNotification('No Mega.nz links found in this section.', 'error');
                         return;
                     }
-                    // For mega.nz links, use the bypass transform; for others copy as-is
-                    const linksToCopy = matchingLinks.map(url =>
-                        url.includes('mega.nz/file/') ? getMegaBypassUrl(url) : url
-                    );
-                    const textToCopy = linksToCopy.join('\n');
-                    showNotification('Copying links...', 'info');
+                    const bypassLinks = megaLinks.map(url => getMegaBypassUrl(url));
+                    const textToCopy = bypassLinks.join('\n');
+                    showNotification('Copying bypass links...', 'info');
                     navigator.clipboard.writeText(textToCopy).then(() => {
-                        showNotification(`${linksToCopy.length} link(s) copied!`, 'success');
+                        showNotification(`${bypassLinks.length} link(s) copied!`, 'success');
                         const oldText = e.target.innerText;
                         e.target.innerText = 'Copied!';
                         setTimeout(() => { e.target.innerText = oldText; }, 2000);
@@ -2310,15 +2344,18 @@
                             </label>
                         </div>
 
-                        <div class="kdrama-setting-item" style="margin-bottom: 0;">
-                            <div class="kdrama-toggle-info" style="margin-bottom: 8px;">
-                                <div class="kdrama-toggle-label">"Copy Links" URL Patterns</div>
-                                <div class="kdrama-toggle-description">Show a "Copy Links" button only for sections containing these URLs. One prefix per line. Mega.nz links are copied via bypass; others are copied as-is.</div>
+${'showFdCircle' in config ? `
+                        <div class="kdrama-toggle-item">
+                            <div class="kdrama-toggle-info">
+                                <div class="kdrama-toggle-label">FileDitch Download Circles</div>
+                                <div class="kdrama-toggle-description">Show an orange &#9679; circle next to each fileditchfiles.me link. Clicking opens the page, auto-clicks the download button, and closes the window.</div>
                             </div>
-                            <textarea id="setting-copy-patterns" class="kdrama-text-input" rows="4" style="resize: vertical; font-family: monospace; font-size: 12px;" placeholder="https://mega.nz/
-https://fileditchfiles.me/">${config.copyLinksPatterns.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+                            <label class="kdrama-toggle-switch">
+                                <input type="checkbox" id="setting-fd-resolve" ${config.showFdCircle ? 'checked' : ''}>
+                                <span class="kdrama-toggle-slider"></span>
+                            </label>
                         </div>
-                    </div>
+                    </div>` : '</div>'}
 
                     <!-- Mega.nz Section -->
                     <div class="kdrama-settings-section">
@@ -2517,7 +2554,8 @@ https://fileditchfiles.me/">${config.copyLinksPatterns.replace(/&/g,'&amp;').rep
             GM_setValue('pstMoeEnhancements', document.getElementById('setting-pstmoe').checked);
             GM_setValue('megaBypass', document.getElementById('setting-mega-bypass').checked);
             GM_setValue('megaNzButton', document.getElementById('setting-mega-nz-btn').checked);
-            GM_setValue('copyLinksPatterns', document.getElementById('setting-copy-patterns').value.trim());
+            const fdEl = document.getElementById('setting-fd-resolve');
+            if (fdEl) GM_setValue('showFdCircle', fdEl.checked);
 
             //  NEW: Save the selected radio button values
             const selectedStyle = document.querySelector('input[name="linkStyle"]:checked').value;
@@ -2930,6 +2968,31 @@ https://fileditchfiles.me/">${config.copyLinksPatterns.replace(/&/g,'&amp;').rep
     }
 
 
+    // --- FileDitch page handler: auto-clicks the download button and closes the popup ---
+    // Runs on fileditchfiles.me when the page is opened by the orange circle button.
+    function handleFileDitchPage() {
+        if (!window.location.hostname.includes('fileditchfiles.me')) return;
+        if (!window.opener) return;
+
+        function tryClick() {
+            const btn = document.querySelector('a.btn.btn-main[download], a.btn-main[download]');
+            if (!btn || !btn.href) return false;
+            btn.click();
+            setTimeout(() => { try { window.close(); } catch(_) {} }, 3000);
+            return true;
+        }
+
+        if (!tryClick()) {
+            // Button not in DOM yet — wait for it
+            const obs = new MutationObserver(() => {
+                if (tryClick()) obs.disconnect();
+            });
+            obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
+            // Give up after 15s and close
+            setTimeout(() => { obs.disconnect(); try { window.close(); } catch(_) {} }, 15000);
+        }
+    }
+
     // --- Mega.nz Floating Bypass Button ---
     function enhanceMegaNzPage() {
         if (!config.megaNzButton) return;
@@ -3030,6 +3093,13 @@ https://fileditchfiles.me/">${config.copyLinksPatterns.replace(/&/g,'&amp;').rep
             }
             // For pst.moe, we just setup the UI and stop rentry-specific logic
             createSettingsUI();
+            return;
+        }
+
+        if (window.location.hostname.includes('fileditchfiles.me')) {
+            try { handleFileDitchPage(); } catch(e) {
+                console.error('Sinflix Modifier error on fileditchfiles.me:', e);
+            }
             return;
         }
 
