@@ -56,66 +56,92 @@
 
     // --- Style Definitions ---
     GM_addStyle(`
-        /* --- Buzzheavier Tool Buttons --- */
-        .bh-actions {
+        /* --- Buzzheavier Server Capsules --- */
+        @keyframes bh-spin {
+            to { transform: rotate(360deg); }
+        }
+        .bh-capsule-wrap {
             display: inline-flex;
-            gap: 4px;
-            margin-left: 12px;
+            align-items: center;
+            gap: 5px;
+            margin-left: 10px;
             vertical-align: middle;
-            opacity: 0.7;
-            transition: opacity 0.2s ease;
+            flex-shrink: 0;
         }
-        .bh-actions.single-page {
-            opacity: 0.9;
-            margin-left: 8px;
-        }
-        .bh-actions.single-page:hover {
-            opacity: 1;
-        }
-        tr.editable:hover .bh-actions {
-            opacity: 1;
-        }
-        .bh-btn {
-            cursor: pointer;
-            border: none;
-            background: transparent;
-            padding: 4px;
+        .bh-capsule {
+            display: inline-flex;
+            align-items: center;
+            gap: 0;
             border-radius: 6px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .bh-capsule-s1 {
+            border: 1px solid rgba(66, 133, 244, 0.55);
+            background: rgba(66, 133, 244, 0.08);
+        }
+        .bh-capsule-s2 {
+            border: 1px solid rgba(52, 168, 83, 0.55);
+            background: rgba(52, 168, 83, 0.08);
+        }
+        .bh-capsule-label {
+            font-size: 9px;
+            font-weight: 700;
+            font-family: "Segoe UI", system-ui, sans-serif;
+            letter-spacing: 0.3px;
+            padding: 0 5px;
+            height: 20px;
             display: flex;
             align-items: center;
+            user-select: none;
+            border-right: 1px solid rgba(255,255,255,0.12);
+            flex-shrink: 0;
+        }
+        .bh-capsule-s1 .bh-capsule-label {
+            color: #6ba5f5;
+        }
+        .bh-capsule-s2 .bh-capsule-label {
+            color: #5dba72;
+        }
+        .bh-cap-btn {
+            display: inline-flex;
+            align-items: center;
             justify-content: center;
-            color: inherit;
-            transition: all 0.2s ease;
-        }
-        .bh-actions.single-page .bh-btn {
-            color: #ccc;
-            padding: 6px;
-        }
-        .bh-btn:hover {
-            background-color: rgba(255, 255, 255, 0.15);
-            transform: scale(1.1);
-            color: #fff;
-            box-shadow: 0 0 8px rgba(0,0,0,0.2);
-        }
-        .bh-btn.play-btn:hover { color: #4ade80; }
-        .bh-btn.copy-btn:hover { color: #60a5fa; }
-        .bh-btn.dl-btn:hover   { color: #f472b6; }
-        .bh-btn svg {
-            width: 18px;
-            height: 18px;
-            fill: currentColor;
-            stroke: currentColor;
-            stroke-width: 0;
-        }
-        .bh-actions.single-page .bh-btn svg {
-            width: 20px;
+            width: 24px;
             height: 20px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            color: rgba(200, 200, 200, 0.7);
+            transition: background 0.15s ease, color 0.15s ease;
+            flex-shrink: 0;
         }
-        .bh-btn.loading svg {
-            animation: spin 0.8s linear infinite;
-            fill: #fbbf24;
+        .bh-cap-btn + .bh-cap-btn {
+            border-left: 1px solid rgba(255,255,255,0.08);
         }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .bh-cap-btn svg {
+            width: 11px;
+            height: 11px;
+            fill: currentColor;
+            display: block;
+            flex-shrink: 0;
+        }
+        .bh-capsule-s1 .bh-cap-btn:hover {
+            background: rgba(66, 133, 244, 0.25);
+            color: #7eb8ff;
+        }
+        .bh-capsule-s2 .bh-cap-btn:hover {
+            background: rgba(52, 168, 83, 0.25);
+            color: #6dd98a;
+        }
+        .bh-cap-btn.bh-loading svg {
+            animation: bh-spin 0.7s linear infinite;
+            opacity: 0.6;
+        }
+        .bh-cap-btn.bh-copied {
+            color: #4ade80 !important;
+        }
 
         /* --- pst.moe Enhancements --- */
         .sinflix-res-header {
@@ -1636,91 +1662,202 @@
     }
 
     // --- Buzzheavier Enhancements ---
+    const buzzDownloadUrlsCache = new Map();
+
+    function resolveBuzzDownloadUrlsFromDoc(doc, baseUrl) {
+        return Array.from(doc.querySelectorAll('a.gay-button[hx-get*="/download"]'))
+            .map(anchor => anchor.getAttribute('hx-get'))
+            .map(endpoint => endpoint?.replace(/&amp;/g, '&'))
+            .map(endpoint => {
+                try {
+                    return new URL(endpoint, baseUrl).href;
+                } catch {
+                    return null;
+                }
+            })
+            .filter(Boolean)
+            .slice(0, 2);
+    }
+
+    function resolveBuzzDownloadUrls(pageUrl, callback) {
+        if (buzzDownloadUrlsCache.has(pageUrl)) {
+            callback(buzzDownloadUrlsCache.get(pageUrl));
+            return;
+        }
+
+        const currentUrl = window.location.href.split('?')[0].split('#')[0].replace(/\/$/, '');
+        const normalizedPageUrl = pageUrl.split('?')[0].split('#')[0].replace(/\/$/, '');
+
+        if (normalizedPageUrl === currentUrl) {
+            const urls = resolveBuzzDownloadUrlsFromDoc(document, pageUrl);
+            if (urls.length > 0) {
+                buzzDownloadUrlsCache.set(pageUrl, urls);
+                callback(urls);
+                return;
+            }
+        }
+
+        GM_xmlhttpRequest({
+            method: "GET",
+            url: pageUrl,
+            onload: function(response) {
+                try {
+                    const doc = new DOMParser().parseFromString(response.responseText, 'text/html');
+                    const urls = resolveBuzzDownloadUrlsFromDoc(doc, pageUrl);
+                    if (urls.length > 0) {
+                        buzzDownloadUrlsCache.set(pageUrl, urls);
+                        callback(urls);
+                    } else {
+                        // Fallback to regex extraction
+                        const hxMatches = Array.from(response.responseText.matchAll(/hx-get="([^"]*\/download\?t=[^"]+)"/g));
+                        const urlsFallback = hxMatches.map(m => {
+                            try {
+                                return new URL(m[1].replace(/&amp;/g, '&'), pageUrl).href;
+                            } catch {
+                                return null;
+                            }
+                        }).filter(Boolean).slice(0, 2);
+
+                        if (urlsFallback.length > 0) {
+                            buzzDownloadUrlsCache.set(pageUrl, urlsFallback);
+                            callback(urlsFallback);
+                        } else {
+                            callback([]);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error parsing Buzzheavier page:", e);
+                    callback([]);
+                }
+            },
+            onerror: function(err) {
+                console.error("Network error fetching Buzzheavier page:", err);
+                callback([]);
+            }
+        });
+    }
+
+    function fetchDirectLink(pageUrl, serverIndex, callback) {
+        resolveBuzzDownloadUrls(pageUrl, (urls) => {
+            const downloadUrl = urls[serverIndex] || urls[0];
+            if (!downloadUrl) {
+                showNotification("Failed to resolve download URL.", "error");
+                callback(null);
+                return;
+            }
+
+            GM_xmlhttpRequest({
+                method: "HEAD",
+                url: downloadUrl,
+                headers: {
+                    "hx-current-url": pageUrl,
+                    "hx-request": "true",
+                    "referer": pageUrl
+                },
+                onload: function(response) {
+                    const headers = response.responseHeaders || '';
+                    const headerMatch = headers.match(/hx-redirect:\s*(.*)/i) || headers.match(/location:\s*(.*)/i);
+                    if (headerMatch && headerMatch[1]) {
+                        callback(headerMatch[1].trim());
+                    } else {
+                        showNotification("Failed to obtain direct link redirect.", "error");
+                        callback(null);
+                    }
+                },
+                onerror: function(err) {
+                    showNotification("Network error obtaining direct link.", "error");
+                    callback(null);
+                }
+            });
+        });
+    }
+
     function enhanceBuzzheavierContent() {
         if (!config.buzzheavierEnhancements) return false;
         if (!window.location.hostname.includes('buzzheavier.com')) return false;
 
         const isHomePage = window.location.pathname.length > 1 && !window.location.pathname.endsWith('/download') && document.querySelector('#tbody');
-        const isSinglePage = document.querySelector('#preview') && document.querySelector('a[href$="/download"]');
+        const isSinglePage = !!document.querySelector('a.gay-button[hx-get*="/download"]');
 
-        const ICONS = {
-            play: '<svg viewBox="0 0 24 24"><path d="M8 5.14v14l11-7-11-7z"/></svg>',
-            copy: '<svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>',
-            downloadSimple: '<svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>',
-            check: '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
-            loading: '<svg viewBox="0 0 24 24"><path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z"/></svg>'
-        };
+        const handleAction = (type, pageUrl, btnElement, serverIndex) => {
+            if (btnElement.classList.contains('bh-loading')) return;
 
+            const originalHTML = btnElement.innerHTML;
+            btnElement.innerHTML = ICON_SPIN;
+            btnElement.classList.add('bh-loading');
 
+            fetchDirectLink(pageUrl, serverIndex, (directUrl) => {
+                btnElement.classList.remove('bh-loading');
+                btnElement.innerHTML = originalHTML;
 
-        const fetchDirectLink = (url, callback) => {
-            const domain = new URL(url).origin;
-            const downloadUrl = url.replace(/\/$/, '') + '/download';
-            GM_xmlhttpRequest({
-                method: "HEAD",
-                url: downloadUrl,
-                headers: {
-                    "hx-current-url": url,
-                    "hx-request": "true",
-                    "referer": url
-                },
-                onload: function(response) {
-                    let redirectPath = null;
-                    const headers = response.responseHeaders;
-                    const headerMatch = headers.match(/hx-redirect:\s*(.*)/i);
-                    if (headerMatch && headerMatch[1]) {
-                        redirectPath = headerMatch[1].trim();
-                    }
-                    if (redirectPath) {
-                        let finalUrl = redirectPath.startsWith('http') ? redirectPath : domain + redirectPath;
-                        callback(finalUrl);
-                    } else {
-                        showNotification("Failed to obtain direct link.", "error");
-                        callback(null);
-                    }
-                },
-                onerror: function(err) {
-                    showNotification("Network error obtaining link.", "error");
-                    callback(null);
-                }
-            });
-        };
+                if (!directUrl) return;
 
-        const handleAction = (type, pageUrl, btnElement) => {
-            if (btnElement.classList.contains('loading')) return;
-            const originalIcon = btnElement.innerHTML;
-            btnElement.innerHTML = ICONS.loading;
-            btnElement.classList.add('loading');
-
-            fetchDirectLink(pageUrl, (directUrl) => {
-                btnElement.classList.remove('loading');
-                if (!directUrl) {
-                    btnElement.innerHTML = originalIcon;
-                    return;
-                }
                 if (type === 'copy') {
                     navigator.clipboard.writeText(directUrl).then(() => {
-                        btnElement.innerHTML = ICONS.check;
-                        setTimeout(() => { btnElement.innerHTML = originalIcon; }, 2000);
+                        btnElement.innerHTML = ICON_CHECK;
+                        btnElement.classList.add('bh-copied');
+                        setTimeout(() => {
+                            btnElement.innerHTML = originalHTML;
+                            btnElement.classList.remove('bh-copied');
+                        }, 2000);
+                        showNotification('Direct link copied!', 'success');
+                    }).catch(() => {
+                        showNotification('Failed to copy link!', 'error');
                     });
-                } else if (type === 'download') {
-                    btnElement.innerHTML = originalIcon;
+                } else if (type === 'dl') {
                     window.location.assign(directUrl);
                 }
             });
         };
 
-        const createActionBtn = (icon, title, type, fileUrl, extraClass) => {
+        const ICON_COPY = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
+        const ICON_DL   = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>`;
+        const ICON_SPIN = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z"/></svg>`;
+        const ICON_CHECK= `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
+
+        const createCapBtn = (icon, title, type, fileUrl, serverIndex) => {
             const btn = document.createElement('button');
-            btn.className = `bh-btn ${extraClass || ''}`;
+            btn.className = 'bh-cap-btn';
             btn.title = title;
             btn.innerHTML = icon;
             btn.onclick = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                handleAction(type, fileUrl, btn);
+                handleAction(type, fileUrl, btn, serverIndex);
             };
             return btn;
+        };
+
+        const createCapsule = (fileUrl, serverIndex) => {
+            const serverNumber = serverIndex + 1;
+            const cap = document.createElement('span');
+            cap.className = `bh-capsule bh-capsule-s${serverNumber}`;
+
+            const lbl = document.createElement('span');
+            lbl.className = 'bh-capsule-label';
+            lbl.textContent = `S${serverNumber}`;
+            cap.appendChild(lbl);
+
+            if (config.buzzCopyLinks) {
+                cap.appendChild(createCapBtn(ICON_COPY, `Copy direct link – Server ${serverNumber}`, 'copy', fileUrl, serverIndex));
+            }
+            if (config.buzzDirectDownload) {
+                cap.appendChild(createCapBtn(ICON_DL, `Download – Server ${serverNumber}`, 'dl', fileUrl, serverIndex));
+            }
+            return cap;
+        };
+
+        const addCapsulesToRow = (row) => {
+            const linkEl = row.querySelector('a[href^="/"]');
+            if (!linkEl) return;
+            if (row.querySelector('.bh-capsule-wrap')) return;
+
+            const fileUrl = linkEl.href;
+            const wrap = document.createElement('span');
+            wrap.className = 'bh-capsule-wrap';
+            wrap.appendChild(createCapsule(fileUrl, 0));
+            wrap.appendChild(createCapsule(fileUrl, 1));
+            linkEl.parentNode.appendChild(wrap);
         };
 
         const copyLinks = (linksArray, btnElement) => {
@@ -1732,7 +1869,7 @@
             let total = linksArray.length;
 
             linksArray.forEach(pageUrl => {
-                fetchDirectLink(pageUrl, (directUrl) => {
+                fetchDirectLink(pageUrl, 0, (directUrl) => {
                     processed++;
                     if (directUrl) {
                         directLinks.push(directUrl);
@@ -1815,21 +1952,8 @@
                             const linkEl = row.querySelector('a[href^="/"]');
                             if (!linkEl) return;
 
-                            const fileUrl = linkEl.href;
-                            linksForQuality.push(fileUrl);
-
-                            if (!row.querySelector('.bh-actions')) {
-                                const actionsContainer = document.createElement('div');
-                                actionsContainer.className = 'bh-actions';
-
-                                if (config.buzzCopyLinks) {
-                                    actionsContainer.appendChild(createActionBtn(ICONS.copy, 'Copy Direct Link', 'copy', fileUrl, 'copy-btn'));
-                                }
-                                if (config.buzzDirectDownload) {
-                                    actionsContainer.appendChild(createActionBtn(ICONS.downloadSimple, 'Direct Download', 'download', fileUrl, 'dl-btn'));
-                                }
-                                linkEl.parentNode.appendChild(actionsContainer);
-                            }
+                            linksForQuality.push(linkEl.href);
+                            addCapsulesToRow(row);
                         });
 
                         const copyBtn = wrapper.querySelector(`.sinflix-copy-btn[data-q="${key}"]`);
@@ -1847,45 +1971,32 @@
                 rows.forEach(row => {
                     const linkEl = row.querySelector('a[href^="/"]');
                     if (!linkEl) return;
-                    const fileUrl = linkEl.href;
-                    allLinks.push(fileUrl);
-
-                    if (!row.querySelector('.bh-actions')) {
-                        const actionsContainer = document.createElement('div');
-                        actionsContainer.className = 'bh-actions';
-
-                        if (config.buzzCopyLinks) {
-                            actionsContainer.appendChild(createActionBtn(ICONS.copy, 'Copy Direct Link', 'copy', fileUrl, 'copy-btn'));
-                        }
-                        if (config.buzzDirectDownload) {
-                            actionsContainer.appendChild(createActionBtn(ICONS.downloadSimple, 'Direct Download', 'download', fileUrl, 'dl-btn'));
-                        }
-                        linkEl.parentNode.appendChild(actionsContainer);
-                    }
+                    allLinks.push(linkEl.href);
+                    addCapsulesToRow(row);
                 });
 
                 if (config.buzzCopyLinks) {
                     const parentTable = tbody.closest('table');
-                    const copyBtn = document.createElement('button');
-                    copyBtn.className = 'sinflix-copy-btn btn btn-sm bg-blue-600 text-white px-3 py-1 rounded my-2';
-                    copyBtn.innerText = 'Copy All Links';
-                    copyBtn.onclick = function() { copyLinks(allLinks, this); };
-                    parentTable.parentNode.insertBefore(copyBtn, parentTable);
+                    if (parentTable && !parentTable.parentNode.querySelector('.sinflix-copy-all-btn')) {
+                        const copyBtn = document.createElement('button');
+                        copyBtn.className = 'sinflix-copy-all-btn sinflix-copy-btn btn btn-sm bg-blue-600 text-white px-3 py-1 rounded my-2';
+                        copyBtn.innerText = 'Copy All Links';
+                        copyBtn.onclick = function() { copyLinks(allLinks, this); };
+                        parentTable.parentNode.insertBefore(copyBtn, parentTable);
+                    }
                 }
             }
         } else if (isSinglePage) {
-            const dlBtn = document.querySelector('a.gay-button') || document.querySelector('a[href$="/download"]');
-            if (dlBtn && !document.querySelector('.bh-actions.single-page')) {
+            // On single-file pages inject one combined capsule-wrap after the FIRST server button
+            const firstDlBtn = document.querySelector('a.gay-button[hx-get*="/download"]:not([hx-get*="alt=true"])')
+                            || document.querySelector('a.gay-button[hx-get*="/download"]');
+            if (firstDlBtn && !firstDlBtn.parentNode.querySelector('.bh-capsule-wrap')) {
                 const fileUrl = window.location.href;
-                const container = document.createElement('div');
-                container.className = 'bh-actions single-page';
-
-                if (config.buzzCopyLinks) {
-                    container.appendChild(createActionBtn(ICONS.copy, 'Copy Direct Link', 'copy', fileUrl, 'copy-btn'));
-                }
-                if (dlBtn.parentNode) {
-                    dlBtn.parentNode.insertBefore(container, dlBtn.nextSibling);
-                }
+                const wrap = document.createElement('span');
+                wrap.className = 'bh-capsule-wrap';
+                wrap.appendChild(createCapsule(fileUrl, 0));
+                wrap.appendChild(createCapsule(fileUrl, 1));
+                firstDlBtn.parentNode.appendChild(wrap);
             }
         }
 
@@ -3116,6 +3227,16 @@ ${'showFdCircle' in config ? `
         if (window.location.hostname.includes('buzzheavier.com')) {
             try {
                 enhanceBuzzheavierContent();
+                
+                // Mutation observer to handle HTMX SPA navigation & dynamic rendering
+                const observer = new MutationObserver(() => {
+                    try {
+                        enhanceBuzzheavierContent();
+                    } catch (e) {
+                        console.error('Sinflix Modifier error during buzzheavier observer processing:', e);
+                    }
+                });
+                observer.observe(document.body, { childList: true, subtree: true });
             } catch (e) {
                 console.error('Sinflix Modifier error during buzzheavier enhancement:', e);
             }
