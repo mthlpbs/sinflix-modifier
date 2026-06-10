@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.08.01
+// @version      26.06.10.13
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links, copy-all-links per resolution, and Mega.nz bypass circles (click to instantly bypass & download, or copy all bypass links). On mega.nz file pages: floating bypass download button that skips Mega quota limits.
 // @license      MIT
 // @author       asurpbs
@@ -37,6 +37,8 @@
         showChatBoxButton: GM_getValue('showChatBoxButton', true),
         // NEW: Add setting for chat box opening style, defaulting to 'tab'
         chatBoxOpenStyle: GM_getValue('chatBoxOpenStyle', 'popup'),
+        // NEW: Add setting for download link opening style, defaulting to 'tab'
+        downloadLinkOpenStyle: GM_getValue('downloadLinkOpenStyle', 'tab'),
         // NEW: pst.moe enhancements
         pstMoeEnhancements: GM_getValue('pstMoeEnhancements', true),
         // NEW: Google search keyword suffix
@@ -64,9 +66,14 @@
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            margin-left: 10px;
-            vertical-align: middle;
             flex-shrink: 0;
+        }
+        .wide .bh-capsule-wrap {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 5;
         }
         .bh-capsule {
             display: inline-flex;
@@ -75,33 +82,39 @@
             border-radius: 6px;
             overflow: hidden;
             flex-shrink: 0;
+            height: 20px;
         }
         .bh-capsule-s1 {
-            border: 1px solid rgba(66, 133, 244, 0.55);
-            background: rgba(66, 133, 244, 0.08);
+            border: 1px solid rgba(66, 133, 244, 0.45);
+            background: rgba(66, 133, 244, 0.05);
         }
         .bh-capsule-s2 {
-            border: 1px solid rgba(52, 168, 83, 0.55);
-            background: rgba(52, 168, 83, 0.08);
+            border: 1px solid rgba(52, 168, 83, 0.45);
+            background: rgba(52, 168, 83, 0.05);
         }
-        .bh-capsule-label {
-            font-size: 9px;
-            font-weight: 700;
-            font-family: "Segoe UI", system-ui, sans-serif;
-            letter-spacing: 0.3px;
-            padding: 0 5px;
-            height: 20px;
-            display: flex;
+        /* --- Buzzheavier Legend --- */
+        .bh-legend-fixed {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            display: inline-flex;
             align-items: center;
+            gap: 12px;
+            font-size: 12px;
+            font-weight: normal;
+            color: #9aa0a6;
             user-select: none;
-            border-right: 1px solid rgba(255,255,255,0.12);
-            flex-shrink: 0;
+            z-index: 1000;
         }
-        .bh-capsule-s1 .bh-capsule-label {
-            color: #6ba5f5;
-        }
-        .bh-capsule-s2 .bh-capsule-label {
-            color: #5dba72;
+        @media (max-width: 640px) {
+            .bh-legend-fixed {
+                position: relative;
+                top: 0;
+                right: 0;
+                margin: 10px auto;
+                justify-content: center;
+                width: fit-content;
+            }
         }
         .bh-cap-btn {
             display: inline-flex;
@@ -275,6 +288,8 @@
             justify-content: center;
             cursor: pointer;
             transition: background 0.3s ease;
+            will-change: transform;
+            transform: translateZ(0);
         }
         #kdrama-settings-button:hover {
             background: rgba(80, 80, 80, 0.6);
@@ -296,6 +311,7 @@
             font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
             opacity: 0;
             transition: opacity 0.2s ease-out;
+            overscroll-behavior: contain;
         }
         #kdrama-settings-modal.show {
             opacity: 1;
@@ -368,6 +384,7 @@
             max-height: 60vh;
             overflow-y: auto;
             background: #202124;
+            overscroll-behavior: contain;
         }
         .kdrama-modal-body::-webkit-scrollbar {
             width: 8px;
@@ -667,6 +684,10 @@
             opacity: 0;
             pointer-events: none;
             right: 20px;
+            /* GPU-promote to compositor layer so backdrop-filter blur is
+               computed off the main thread — prevents scroll-frame repaints */
+            will-change: transform;
+            transform: translateZ(0);
         }
         .kdrama-float-button.show {
             opacity: 1;
@@ -696,7 +717,7 @@
             position: fixed;
             top: 20px;
             left: 50%;
-            transform: translateX(-50%);
+            transform: translateX(-50%) translateZ(0);
             background: rgba(0, 0, 0, 0.9);
             color: white;
             padding: 12px 20px;
@@ -710,6 +731,7 @@
             pointer-events: none;
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
+            will-change: transform;
         }
         .kdrama-notification.show {
             opacity: 1;
@@ -733,7 +755,7 @@
             position: fixed;
             top: 14px;
             left: 50%;
-            transform: translateX(-50%);
+            transform: translateX(-50%) translateZ(0);
             z-index: 10006;
             /* Dynamic Island pill shape */
             width: min(560px, calc(100vw - 32px));
@@ -750,6 +772,9 @@
             gap: 10px;
             overflow: hidden;
             cursor: text;
+            /* GPU-promote via will-change so backdrop-filter compositing is
+               off the main thread and never stalls scroll rendering */
+            will-change: transform;
             /* Transition for all morphing */
             transition:
                 width 0.55s cubic-bezier(0.34, 1.38, 0.64, 1),
@@ -778,7 +803,7 @@
         #sfx-top-searchbar-wrap.sfx-collapsed:hover {
             background: rgba(38, 38, 44, 0.82);
             border-color: rgba(255,255,255,0.13);
-            transform: translateX(-50%) scale(1.03);
+            transform: translateX(-50%) translateZ(0) scale(1.03);
         }
         #sfx-top-searchbar-wrap.sfx-expanding {
             /* Briefly scale up a touch during expansion */
@@ -1109,6 +1134,13 @@
     function extractDramaName(text) {
         const cleanText = text.trim();
         if (cleanText.length < 10) return null;
+        
+        // Fast pre-filter: SinFlix drama lines must contain '[', '(', '-', or 'soon'
+        const lower = cleanText.toLowerCase();
+        if (!cleanText.includes('[') && !cleanText.includes('(') && !cleanText.includes('-') && !lower.includes('soon')) {
+            return null;
+        }
+
         for (const pattern of dramaPatterns) {
             const match = cleanText.match(pattern);
             if (match && match[1]) {
@@ -1776,7 +1808,37 @@
         if (!config.buzzheavierEnhancements) return false;
         if (!window.location.hostname.includes('buzzheavier.com')) return false;
 
-        const isHomePage = window.location.pathname.length > 1 && !window.location.pathname.endsWith('/download') && document.querySelector('#tbody');
+        // Inject global legend at top right of the site
+        if (!document.querySelector('.bh-legend-fixed')) {
+            const legend = document.createElement('div');
+            legend.className = 'bh-legend-fixed';
+            legend.innerHTML = `
+                <span style="display: inline-flex; align-items: center; gap: 6px;">
+                    <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background-color: #6ba5f5;"></span>
+                    Server 1
+                </span>
+                <span style="display: inline-flex; align-items: center; gap: 6px;">
+                    <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background-color: #5dba72;"></span>
+                    Server 2
+                </span>
+            `;
+            if (document.body) {
+                document.body.insertBefore(legend, document.body.firstChild);
+            }
+        }
+
+        const getFileLink = (parent) => {
+            return parent.querySelector('a[href^="/"]') 
+                || parent.querySelector('a[href*="buzzheavier.com/"]') 
+                || parent.querySelector('a[href*="localhost:"]');
+        };
+
+        const getFileLinks = (parent) => {
+            const list = Array.from(parent.querySelectorAll('a[href^="/"], a[href*="buzzheavier.com/"], a[href*="localhost:"]'));
+            return [...new Set(list)];
+        };
+
+        const isHomePage = window.location.pathname.length > 1 && !window.location.pathname.endsWith('/download') && (document.querySelector('#tbody') || document.querySelector('[id^="tbody-"]'));
         const isSinglePage = !!document.querySelector('a.gay-button[hx-get*="/download"]');
 
         const handleAction = (type, pageUrl, btnElement, serverIndex) => {
@@ -1833,11 +1895,6 @@
             const cap = document.createElement('span');
             cap.className = `bh-capsule bh-capsule-s${serverNumber}`;
 
-            const lbl = document.createElement('span');
-            lbl.className = 'bh-capsule-label';
-            lbl.textContent = `S${serverNumber}`;
-            cap.appendChild(lbl);
-
             if (config.buzzCopyLinks) {
                 cap.appendChild(createCapBtn(ICON_COPY, `Copy direct link – Server ${serverNumber}`, 'copy', fileUrl, serverIndex));
             }
@@ -1848,7 +1905,7 @@
         };
 
         const addCapsulesToRow = (row) => {
-            const linkEl = row.querySelector('a[href^="/"]');
+            const linkEl = getFileLink(row);
             if (!linkEl) return;
             if (row.querySelector('.bh-capsule-wrap')) return;
 
@@ -1857,7 +1914,13 @@
             wrap.className = 'bh-capsule-wrap';
             wrap.appendChild(createCapsule(fileUrl, 0));
             wrap.appendChild(createCapsule(fileUrl, 1));
-            linkEl.parentNode.appendChild(wrap);
+
+            const parent = linkEl.parentNode;
+            if (parent) {
+                parent.style.position = 'relative';
+                parent.style.paddingRight = '88px'; // Prevent link text from overlapping the buttons
+                parent.appendChild(wrap);
+            }
         };
 
         const copyLinks = (linksArray, btnElement) => {
@@ -1892,98 +1955,96 @@
             });
         };
 
-        if (isHomePage) {
-            const tbody = document.querySelector('#tbody');
-            if (tbody && config.buzzSplitQuality) {
-                const rows = Array.from(tbody.querySelectorAll('tr.editable'));
-                const qualities = { '1080p': [], '720p': [], '540p': [], '480p': [], 'Other': [] };
+        const processRows = (rows) => {
+            rows.forEach(row => {
+                if (row.classList.contains('sfx-processed')) return;
+                row.classList.add('sfx-processed');
 
-                rows.forEach(row => {
-                    const linkEl = row.querySelector('a[href^="/"]');
-                    if (!linkEl) return;
+                const linkEl = getFileLink(row);
+                if (!linkEl) return;
 
+                const fileUrl = linkEl.href;
+                
+                if (config.buzzSplitQuality) {
                     const name = linkEl.innerText.toLowerCase();
-                    let matched = false;
-                    for (const q of Object.keys(qualities)) {
-                        if (q !== 'Other' && name.includes(q)) {
-                            qualities[q].push(row);
-                            matched = true;
+                    let quality = 'Other';
+                    for (const q of ['1080p', '720p', '540p', '480p']) {
+                        if (name.includes(q)) {
+                            quality = q;
                             break;
                         }
                     }
-                    if (!matched) qualities['Other'].push(row);
-                });
 
-                const parentTable = tbody.closest('table');
-                const container = parentTable.parentNode;
-                const headerRow = parentTable.querySelector('thead').outerHTML;
-                const tableClass = parentTable.className;
+                    let targetTbody = document.getElementById(`tbody-${quality}`);
+                    if (!targetTbody) {
+                        const originalTbody = document.querySelector('#tbody');
+                        const parentTable = originalTbody ? originalTbody.closest('table') : document.querySelector('table');
+                        const container = parentTable.parentNode;
+                        const headerRow = parentTable.querySelector('thead').outerHTML;
+                        const tableClass = parentTable.className;
 
-                parentTable.style.display = 'none';
-
-                Object.keys(qualities).forEach(key => {
-                    if (qualities[key].length > 0) {
                         const wrapper = document.createElement('div');
                         wrapper.className = 'w-full relative shadow overflow-hidden sm:rounded-lg overflow-x-auto my-6';
 
                         let copyAllBtnHtml = '';
                         if (config.buzzCopyLinks) {
-                            copyAllBtnHtml = `<button class="sinflix-copy-btn btn btn-sm btn-outline-primary float-right" data-q="${key}">Copy Links</button>`;
+                            copyAllBtnHtml = `<button class="sinflix-copy-btn btn btn-sm btn-outline-primary float-right" data-q="${quality}">Copy Links</button>`;
                         }
 
                         wrapper.innerHTML = `
                             <h3 class="p-3 text-lg font-bold bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
-                                ${key}
+                                ${quality}
                                 ${copyAllBtnHtml}
                             </h3>
                             <table class="${tableClass}" style="margin-top: 0">
                                 ${headerRow}
-                                <tbody id="tbody-${key}">
+                                <tbody id="tbody-${quality}">
                                 </tbody>
                             </table>
                         `;
                         container.insertBefore(wrapper, parentTable);
+                        targetTbody = wrapper.querySelector(`#tbody-${quality}`);
 
-                        const newTbody = wrapper.querySelector(`#tbody-${key}`);
-                        const linksForQuality = [];
-
-                        qualities[key].forEach(row => {
-                            newTbody.appendChild(row);
-                            const linkEl = row.querySelector('a[href^="/"]');
-                            if (!linkEl) return;
-
-                            linksForQuality.push(linkEl.href);
-                            addCapsulesToRow(row);
-                        });
-
-                        const copyBtn = wrapper.querySelector(`.sinflix-copy-btn[data-q="${key}"]`);
+                        const copyBtn = wrapper.querySelector(`.sinflix-copy-btn[data-q="${quality}"]`);
                         if (copyBtn) {
                             copyBtn.addEventListener('click', function() {
-                                copyLinks(linksForQuality, this);
+                                const links = getFileLinks(targetTbody).map(a => a.href);
+                                copyLinks(links, this);
                             });
                         }
                     }
-                });
-            } else if (tbody) {
-                const rows = Array.from(tbody.querySelectorAll('tr.editable'));
-                const allLinks = [];
 
-                rows.forEach(row => {
-                    const linkEl = row.querySelector('a[href^="/"]');
-                    if (!linkEl) return;
-                    allLinks.push(linkEl.href);
-                    addCapsulesToRow(row);
-                });
+                    targetTbody.appendChild(row);
+                }
 
-                if (config.buzzCopyLinks) {
-                    const parentTable = tbody.closest('table');
-                    if (parentTable && !parentTable.parentNode.querySelector('.sinflix-copy-all-btn')) {
-                        const copyBtn = document.createElement('button');
-                        copyBtn.className = 'sinflix-copy-all-btn sinflix-copy-btn btn btn-sm bg-blue-600 text-white px-3 py-1 rounded my-2';
-                        copyBtn.innerText = 'Copy All Links';
-                        copyBtn.onclick = function() { copyLinks(allLinks, this); };
-                        parentTable.parentNode.insertBefore(copyBtn, parentTable);
-                    }
+                addCapsulesToRow(row);
+            });
+        };
+
+        if (isHomePage) {
+            const originalTbody = document.querySelector('#tbody');
+            if (originalTbody) {
+                const parentTable = originalTbody.closest('table');
+                if (parentTable && config.buzzSplitQuality) {
+                    parentTable.style.display = 'none';
+                }
+            }
+
+            // Dynamically select and process all unprocessed tr.editable rows in the page
+            const rows = Array.from(document.querySelectorAll('tr.editable:not(.sfx-processed)'));
+            processRows(rows);
+
+            if (!config.buzzSplitQuality && originalTbody && config.buzzCopyLinks) {
+                const parentTable = originalTbody.closest('table');
+                if (parentTable && !parentTable.parentNode.querySelector('.sinflix-copy-all-btn')) {
+                    const copyBtn = document.createElement('button');
+                    copyBtn.className = 'sinflix-copy-all-btn sinflix-copy-btn btn btn-sm bg-blue-600 text-white px-3 py-1 rounded my-2';
+                    copyBtn.innerText = 'Copy All Links';
+                    copyBtn.onclick = function() {
+                        const links = getFileLinks(originalTbody).map(a => a.href);
+                        copyLinks(links, this);
+                    };
+                    parentTable.parentNode.insertBefore(copyBtn, parentTable);
                 }
             }
         } else if (isSinglePage) {
@@ -2003,176 +2064,215 @@
         return true;
     }
     // --- Main Processing Function ---
-    function enhancePageContent() {
+    function enhancePageContentSync() {
         const content = document.querySelector('.entry-text article');
         if (!content) {
-            console.log('Sinflix Modifier: Content not found, retrying...');
+            console.log('Sinflix Modifier: Content not found.');
             return false;
         }
-        const currentVersion = 'v6.4.1_selective_popup';
+
+        const currentVersion = 'v6.4.4_sync_single_pass';
         if (content.dataset.enhancedv === currentVersion) {
-            console.log(`Sinflix Modifier: Content already enhanced (${currentVersion}). Skipping.`);
             return true;
         }
-        console.log(`Sinflix Modifier (${currentVersion}): Processing...`);
         content.dataset.enhancedv = currentVersion;
 
-        // NEW: Reorder sections FIRST, before any other processing
+        console.log(`Sinflix Modifier (${currentVersion}): Processing synchronously...`);
+
+        // 1. Move currently airing if set
         if (config.moveCurrentlyAiringToTop) {
             reorderSections();
         }
 
-        const buzzRegex = /\b(?![a-zA-Z]{12}\b)([a-zA-Z0-9]{12})\b/g;
-
-        if (config.showGoogleCircle || config.showMdlCircle) {
-            document.querySelectorAll('.kdrama-circle-container').forEach(el => el.remove());
-            const textNodes = [];
-            const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT, {
-                acceptNode: n => (!n.parentNode.closest('a, .kdrama-highlight, .kdrama-search-icon, .kdrama-circle-container') && n.nodeValue.trim().length > 0) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
-            });
-            let node;
-            while (node = walker.nextNode()) textNodes.push(node);
-
-            textNodes.forEach(textNode => {
-                let fullText = textNode.textContent.replace(/=\r?\n/g, '').replace(/=([0-9A-Fa-f]{2})/g, (m, p1) => {
-                    try { return String.fromCharCode(parseInt(p1, 16)); } catch(e) { return m; }
-                });
-                const lines = fullText.split('\n');
-                let fragment = document.createDocumentFragment();
-                let lastOffset = 0;
-                let processedAnyLine = false;
-
-                lines.forEach(line => {
-                    const dramaName = extractDramaName(line);
-                    if (dramaName) {
-                        const lineStartIndex = fullText.indexOf(line, lastOffset);
-                        if (lineStartIndex > lastOffset) fragment.appendChild(document.createTextNode(fullText.substring(lastOffset, lineStartIndex)));
-
-                        const container = document.createElement('span');
-                        container.className = 'kdrama-circle-container';
-
-                        if (config.showGoogleCircle) {
-                            const searchQuery = `${dramaName} ${config.googleSearchSuffix}`.trim();
-                            const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`;
-                            const googleCircle = document.createElement('span');
-                            googleCircle.className = 'kdrama-circle google-circle';
-                            googleCircle.title = `Search '${dramaName}' on Google`;
-                            googleCircle.onclick = (e) => {
-                                e.stopPropagation();
-                                //  USE SETTING: Check which style the user prefers
-                                if (config.linkOpenStyle === 'popup') {
-                                    openInCenter(googleUrl, 'sinflix_Google Search');
-                                } else {
-                                    window.open(googleUrl, '_blank');
-                                }
-                            };
-                            container.appendChild(googleCircle);
-                        }
-
-                        if (config.showMdlCircle) {
-                            const mdlUrl = `https://mydramalist.com/search?q=${encodeURIComponent(dramaName)}&adv=titles&ty=68&co=3&so=relevance`;
-                            const mdlCircle = document.createElement('span');
-                            mdlCircle.className = 'kdrama-circle mdl-circle';
-                            mdlCircle.title = `Search '${dramaName}' on MyDramaList\nCtrl+Click to copy first result link`;
-                            mdlCircle.onclick = async (e) => {
-                                e.stopPropagation();
-
-                                // Check if Ctrl key is pressed
-                                if (e.ctrlKey) {
-                                    showNotification('Getting the link...', 'info');
-                                    const firstResultUrl = await getMdlFirstResultUrl(mdlUrl, dramaName);
-
-                                    if (firstResultUrl) {
-                                        const success = await copyToClipboard(firstResultUrl);
-                                        if (success) {
-                                            showNotification('Link copied to clipboard!', 'success');
-                                        } else {
-                                            showNotification('Failed to copy link to clipboard', 'error');
-                                        }
-                                    } else {
-                                        showNotification('No results found for this drama', 'error');
-                                    }
-                                    return;
-                                }
-
-                                // Normal click behavior - Load page in background and get first result
-                                loadMdlPageAndOpenFirstResult(mdlUrl, dramaName);
-                            };
-                            container.appendChild(mdlCircle);
-                        }
-                        fragment.appendChild(container);
-                        fragment.appendChild(document.createTextNode(line));
-                        processedAnyLine = true;
-                    } else {
-                        const lineStartIndex = fullText.indexOf(line, lastOffset);
-                        if (lineStartIndex > lastOffset) fragment.appendChild(document.createTextNode(fullText.substring(lastOffset, lineStartIndex)));
-                        fragment.appendChild(document.createTextNode(line));
-                    }
-                    fragment.appendChild(document.createTextNode('\n'));
-                    lastOffset = fullText.indexOf(line, lastOffset) + line.length + 1;
-                });
-                if (lastOffset < fullText.length) fragment.appendChild(document.createTextNode(fullText.substring(lastOffset)));
-                if (processedAnyLine && textNode.parentNode) textNode.parentNode.replaceChild(fragment, textNode);
-            });
-        }
-
-        if (config.convertBuzzheavierLinks) {
-             const linkWalker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT, { acceptNode: n => n.parentNode.nodeName !== 'A' ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT });
-             const linkNodes = [];
-             let n;
-             while (n = linkWalker.nextNode()) {
-                 buzzRegex.lastIndex = 0;
-                 if (buzzRegex.test(n.textContent)) linkNodes.push(n);
-             }
-             linkNodes.forEach(node => {
-                 if (!document.body.contains(node) || node.parentNode.nodeName === 'A') return;
-                 const fragment = document.createDocumentFragment();
-                 const text = node.textContent;
-                 let lastIndex = 0;
-                 buzzRegex.lastIndex = 0;
-                 let match;
-                 while ((match = buzzRegex.exec(text)) !== null) {
-                     if (match.index > lastIndex) fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
-                     const link = document.createElement('a');
-                     link.href = `https://buzzheavier.com/${match[1]}`;
-                     link.textContent = link.href;
-                     link.target = '_blank';
-                     fragment.appendChild(link);
-                     lastIndex = match.index + match[0].length;
-                 }
-                 if (lastIndex < text.length) fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
-                 if (fragment.hasChildNodes() && node.parentNode) node.parentNode.replaceChild(fragment, node);
-             });
-        }
-
-        // NEW: Process existing links to apply special behavior only to specific links
+        // 2. Patch existing links target attribute for better native UX
         const existingLinks = content.querySelectorAll('a[href]');
         existingLinks.forEach(link => {
-            // Skip links that are already processed or are internal links
             if (link.dataset.sinflixProcessed || link.href.startsWith('#') || link.href.startsWith('javascript:')) return;
-
             link.dataset.sinflixProcessed = 'true';
-
-            // Special handling for SinFlix chat box link
-            if (link.href.includes('my.cbox.ws/sin-flix')) {
-                // Remove existing target and click handlers
-                link.removeAttribute('target');
-
-                // Add new click handler based on chat box preference
-                link.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-
-                    openInCenter(link.href, 'sinflix_chat');
-                });
+            
+            const isDownloadLink = link.href.includes('buzzheavier.com') 
+                                || link.href.includes('mega.nz') 
+                                || link.href.includes('mega.co.nz') 
+                                || link.href.includes('pst.moe')
+                                || link.href.includes('pixeldrain.com')
+                                || link.href.includes('ok.ru');
+            if (isDownloadLink) {
+                if (config.downloadLinkOpenStyle !== 'popup') {
+                    if (link.getAttribute('target') !== '_blank') {
+                        link.setAttribute('target', '_blank');
+                    }
+                }
             }
-            // For all other links, leave them as they are (normal behavior)
         });
 
-        console.log('Sinflix Modifier: Processing complete. ✨');
+        // 3. Setup BuzzHeavier regex
+        const buzzRegex = /\b(?![a-zA-Z]{12}\b)([a-zA-Z0-9]{12})\b/g;
 
-        // Mark content as processed to show all headers
-        content.classList.add('sinflix-processed');
+        // 4. Process all text nodes for Circle injection and BuzzHeavier link conversion in one pass
+        const textNodes = [];
+        const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT, {
+            acceptNode: function(n) {
+                const parent = n.parentNode;
+                if (!parent) return NodeFilter.FILTER_REJECT;
+                const tag = parent.tagName;
+                if (['A', 'SCRIPT', 'STYLE', 'NOSCRIPT'].includes(tag)) return NodeFilter.FILTER_REJECT;
+                if (parent.closest('a, .kdrama-highlight, .kdrama-search-icon, .kdrama-circle-container')) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                return n.nodeValue.trim().length > 0 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+            }
+        });
+
+        let node;
+        while (node = walker.nextNode()) {
+            textNodes.push(node);
+        }
+
+        // Process function
+        function processTextNodeSync(textNode) {
+            const fullText = textNode.textContent;
+            
+            // Fast pattern checks
+            buzzRegex.lastIndex = 0;
+            const hasBuzzId = buzzRegex.test(fullText);
+            const mightHaveDrama = fullText.includes('[') || fullText.includes('-') || /ep/i.test(fullText);
+            
+            if (!hasBuzzId && !mightHaveDrama) return;
+
+            const lines = fullText.split('\n');
+            const fragment = document.createDocumentFragment();
+            let modified = false;
+
+            lines.forEach((line, lineIdx) => {
+                let lineFragment = null;
+
+                // A. Check for drama name & inject circles
+                const dramaName = extractDramaName(line);
+                if (dramaName && (config.showGoogleCircle || config.showMdlCircle)) {
+                    lineFragment = document.createDocumentFragment();
+                    modified = true;
+
+                    const container = document.createElement('span');
+                    container.className = 'kdrama-circle-container';
+
+                    if (config.showGoogleCircle) {
+                        const searchQuery = (dramaName + ' ' + config.googleSearchSuffix).trim();
+                        const googleUrl = 'https://www.google.com/search?q=' + encodeURIComponent(searchQuery);
+                        const googleCircle = document.createElement('span');
+                        googleCircle.className = 'kdrama-circle google-circle';
+                        googleCircle.title = `Search '${dramaName}' on Google`;
+                        googleCircle.onclick = (e) => {
+                            e.stopPropagation();
+                            if (config.linkOpenStyle === 'popup') {
+                                openInCenter(googleUrl, 'sinflix_Google Search');
+                            } else {
+                                window.open(googleUrl, '_blank');
+                            }
+                        };
+                        container.appendChild(googleCircle);
+                    }
+
+                    if (config.showMdlCircle) {
+                        const mdlUrl = 'https://mydramalist.com/search?q=' + encodeURIComponent(dramaName) + '&adv=titles&ty=68&co=3&so=relevance';
+                        const mdlCircle = document.createElement('span');
+                        mdlCircle.className = 'kdrama-circle mdl-circle';
+                        mdlCircle.title = `Search '${dramaName}' on MyDramaList\nCtrl+Click to copy first result link`;
+                        mdlCircle.onclick = async (e) => {
+                            e.stopPropagation();
+                            if (e.ctrlKey) {
+                                showNotification('Getting the link...', 'info');
+                                const firstResultUrl = await getMdlFirstResultUrl(mdlUrl, dramaName);
+                                if (firstResultUrl) {
+                                    const success = await copyToClipboard(firstResultUrl);
+                                    showNotification(success ? 'Link copied to clipboard!' : 'Failed to copy link to clipboard', success ? 'success' : 'error');
+                                } else {
+                                    showNotification('No results found for this drama', 'error');
+                                }
+                                return;
+                            }
+                            loadMdlPageAndOpenFirstResult(mdlUrl, dramaName);
+                        };
+                        container.appendChild(mdlCircle);
+                    }
+
+                    lineFragment.appendChild(container);
+                }
+
+                // B. Convert Buzzheavier IDs to links
+                let linePartsFrag = null;
+                if (config.convertBuzzheavierLinks) {
+                    buzzRegex.lastIndex = 0;
+                    let lastIdx = 0;
+                    let match;
+
+                    while ((match = buzzRegex.exec(line)) !== null) {
+                        if (!linePartsFrag) {
+                            linePartsFrag = document.createDocumentFragment();
+                            modified = true;
+                        }
+                        if (match.index > lastIdx) {
+                            linePartsFrag.appendChild(document.createTextNode(line.slice(lastIdx, match.index)));
+                        }
+
+                        const link = document.createElement('a');
+                        link.href = 'https://buzzheavier.com/' + match[1];
+                        link.textContent = link.href;
+                        link.target = '_blank';
+                        linePartsFrag.appendChild(link);
+
+                        lastIdx = match.index + match[0].length;
+                    }
+
+                    if (linePartsFrag) {
+                        if (lastIdx < line.length) {
+                            linePartsFrag.appendChild(document.createTextNode(line.slice(lastIdx)));
+                        }
+                    }
+                }
+
+                // C. Assemble the line, preserving original text content when no link was matched
+                if (lineFragment) {
+                    if (linePartsFrag) {
+                        lineFragment.appendChild(linePartsFrag);
+                    } else {
+                        lineFragment.appendChild(document.createTextNode(line));
+                    }
+                    fragment.appendChild(lineFragment);
+                } else {
+                    if (linePartsFrag) {
+                        fragment.appendChild(linePartsFrag);
+                    } else {
+                        fragment.appendChild(document.createTextNode(line));
+                    }
+                }
+
+                // Newline (not on very last line)
+                if (lineIdx < lines.length - 1) {
+                    fragment.appendChild(document.createTextNode('\n'));
+                }
+            });
+
+            if (modified && textNode.parentNode) {
+                textNode.parentNode.replaceChild(fragment, textNode);
+            }
+        }
+
+        // Process all nodes in small asynchronous batches to keep the main thread/scrolling completely responsive
+        let index = 0;
+        function processNextBatch() {
+            const batchSize = 40; // Process 40 text nodes per batch (~3ms) to prevent long-task blocking
+            const end = Math.min(index + batchSize, textNodes.length);
+            for (; index < end; index++) {
+                processTextNodeSync(textNodes[index]);
+            }
+            if (index < textNodes.length) {
+                setTimeout(processNextBatch, 0); // Yield to the browser
+            } else {
+                content.classList.add('sinflix-processed');
+                console.log('Sinflix Modifier: Synchronous processing complete. ✨');
+            }
+        }
+        processNextBatch();
 
         return true;
     }
@@ -2600,6 +2700,30 @@ ${'showFdCircle' in config ? `
                                 </div>
                             </div>
                         </div>
+
+                        <div class="kdrama-radio-group" style="margin-top: 16px;">
+                            <div class="kdrama-radio-group-title">Download Links Opening Style</div>
+                            <div class="kdrama-radio-options">
+                                <div class="kdrama-radio-option">
+                                    <input type="radio" name="downloadLinkStyle" value="popup" id="dl-link-popup">
+                                    <label for="dl-link-popup" class="kdrama-radio-option-label">
+                                        <svg class="kdrama-radio-option-icon" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M19 7h-3V6a4 4 0 0 0-8 0v1H5a1 1 0 0 0-1 1v11a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8a1 1 0 0 0-1-1zM10 6a2 2 0 0 1 4 0v1h-4V6zm6 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V9h2v1a1 1 0 0 0 2 0V9h4v1a1 1 0 0 0 2 0V9h2v11z"/>
+                                        </svg>
+                                        Popup Window
+                                    </label>
+                                </div>
+                                <div class="kdrama-radio-option">
+                                    <input type="radio" name="downloadLinkStyle" value="tab" id="dl-link-tab">
+                                    <label for="dl-link-tab" class="kdrama-radio-option-label">
+                                        <svg class="kdrama-radio-option-icon" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                                        </svg>
+                                        New Tab
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -2618,6 +2742,7 @@ ${'showFdCircle' in config ? `
         //  NEW: Set the correct radio button based on saved config
         document.querySelector(`input[name="linkStyle"][value="${config.linkOpenStyle}"]`).checked = true;
         document.querySelector(`input[name="chatBoxStyle"][value="${config.chatBoxOpenStyle}"]`).checked = true;
+        document.querySelector(`input[name="downloadLinkStyle"][value="${config.downloadLinkOpenStyle}"]`).checked = true;
 
         const saveButton = document.getElementById('kdrama-save-button');
         const closeBtn = document.getElementById('kdrama-settings-close');
@@ -2674,6 +2799,9 @@ ${'showFdCircle' in config ? `
 
             const selectedChatBoxStyle = document.querySelector('input[name="chatBoxStyle"]:checked').value;
             GM_setValue('chatBoxOpenStyle', selectedChatBoxStyle);
+
+            const selectedDlLinkStyle = document.querySelector('input[name="downloadLinkStyle"]:checked').value;
+            GM_setValue('downloadLinkOpenStyle', selectedDlLinkStyle);
 
             GM_setValue('googleSearchSuffix', document.getElementById('setting-google-suffix').value);
 
@@ -2753,21 +2881,28 @@ ${'showFdCircle' in config ? `
         }
         updateButtonPositions();
 
+        // Throttle scroll handler with rAF to avoid blocking the main thread on every scroll pixel.
+        let bttRafPending = false;
         window.addEventListener('scroll', () => {
-            const scrollThreshold = 200;
-            const shouldShowBackToTop = window.scrollY > scrollThreshold && config.showBackToTopButton;
-            const isCurrentlyShowing = backToTopBtn.classList.contains('show');
+            if (bttRafPending) return;
+            bttRafPending = true;
+            requestAnimationFrame(() => {
+                bttRafPending = false;
+                const scrollThreshold = 200;
+                const shouldShowBackToTop = window.scrollY > scrollThreshold && config.showBackToTopButton;
+                const isCurrentlyShowing = backToTopBtn.classList.contains('show');
 
-            if (shouldShowBackToTop && !isCurrentlyShowing) {
-                // Show back-to-top button and animate other buttons
-                backToTopBtn.classList.add('show');
-                updateButtonPositionsWithAnimation();
-            } else if (!shouldShowBackToTop && isCurrentlyShowing) {
-                // Hide back-to-top button and animate other buttons
-                backToTopBtn.classList.remove('show');
-                updateButtonPositionsWithAnimation();
-            }
-        });
+                if (shouldShowBackToTop && !isCurrentlyShowing) {
+                    // Show back-to-top button and animate other buttons
+                    backToTopBtn.classList.add('show');
+                    updateButtonPositionsWithAnimation();
+                } else if (!shouldShowBackToTop && isCurrentlyShowing) {
+                    // Hide back-to-top button and animate other buttons
+                    backToTopBtn.classList.remove('show');
+                    updateButtonPositionsWithAnimation();
+                }
+            });
+        }, { passive: true });
 
         backToTopBtn.addEventListener('click', () => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2777,7 +2912,11 @@ ${'showFdCircle' in config ? `
         if (config.showChatBoxButton && chatBtn) {
             chatBtn.addEventListener('click', () => {
                 const chatUrl = 'https://my.cbox.ws/sin-flix';
-                openInCenter(chatUrl, 'sinflix_chat');
+                if (config.chatBoxOpenStyle === 'popup') {
+                    openInCenter(chatUrl, 'sinflix_chat');
+                } else {
+                    window.open(chatUrl, '_blank');
+                }
             });
         }
     }
@@ -2864,7 +3003,11 @@ ${'showFdCircle' in config ? `
             capChat.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const chatUrl = 'https://my.cbox.ws/sin-flix';
-                openInCenter(chatUrl, 'sinflix_chat');
+                if (config.chatBoxOpenStyle === 'popup') {
+                    openInCenter(chatUrl, 'sinflix_chat');
+                } else {
+                    window.open(chatUrl, '_blank');
+                }
             });
             wrap.appendChild(capChat);
         }
@@ -3062,12 +3205,20 @@ ${'showFdCircle' in config ? `
         });
 
         // Collapse on user scroll only when no active search results.
+        // Throttled with rAF to avoid heavy CSS transition repaints on every scroll event.
         let scrollListenerActive = false;
+        let sfxScrollRafPending = false;
         setTimeout(() => { scrollListenerActive = true; }, 300);
         window.addEventListener('scroll', () => {
             if (!scrollListenerActive) return;
-            if (sfxHighlights.length > 0) return; // keep open while navigating results
-            if (!isCollapsed) collapse();
+            if (isCollapsed) return;
+            if (sfxScrollRafPending) return;
+            sfxScrollRafPending = true;
+            requestAnimationFrame(() => {
+                sfxScrollRafPending = false;
+                if (sfxHighlights.length > 0) return; // keep open while navigating results
+                if (!isCollapsed) collapse();
+            });
         }, { passive: true });
 
         // Clicking anywhere outside the bar always collapses it (even with active results).
@@ -3116,7 +3267,7 @@ ${'showFdCircle' in config ? `
                 position: fixed;
                 bottom: 28px;
                 left: 50%;
-                transform: translateX(-50%);
+                transform: translateX(-50%) translateZ(0);
                 z-index: 99999;
                 display: inline-flex;
                 align-items: center;
@@ -3139,15 +3290,16 @@ ${'showFdCircle' in config ? `
                 transition: background 0.2s ease, border-color 0.2s ease,
                             box-shadow 0.2s ease, transform 0.15s ease;
                 user-select: none;
+                will-change: transform;
             }
             #sinflix-mega-bypass-btn:hover {
                 background: rgba(217, 39, 46, 0.88);
                 border-color: rgba(217, 39, 46, 0.9);
                 box-shadow: 0 6px 28px rgba(217,39,46,0.35), 0 2px 8px rgba(0,0,0,0.4);
-                transform: translateX(-50%) translateY(-2px);
+                transform: translateX(-50%) translateY(-2px) translateZ(0);
             }
             #sinflix-mega-bypass-btn:active {
-                transform: translateX(-50%) translateY(0px);
+                transform: translateX(-50%) translateY(0px) translateZ(0);
                 box-shadow: 0 2px 12px rgba(217,39,46,0.25);
             }
             #sinflix-mega-bypass-btn .sfx-mega-icon {
@@ -3227,14 +3379,20 @@ ${'showFdCircle' in config ? `
         if (window.location.hostname.includes('buzzheavier.com')) {
             try {
                 enhanceBuzzheavierContent();
-                
-                // Mutation observer to handle HTMX SPA navigation & dynamic rendering
+
+                // Debounced MutationObserver for HTMX SPA navigation & dynamic rendering.
+                // Without debouncing, each HTMX DOM update fires the observer many times
+                // in rapid succession (one per node), causing excessive processing in Chromium.
+                let buzzObserverTimer = null;
                 const observer = new MutationObserver(() => {
-                    try {
-                        enhanceBuzzheavierContent();
-                    } catch (e) {
-                        console.error('Sinflix Modifier error during buzzheavier observer processing:', e);
-                    }
+                    clearTimeout(buzzObserverTimer);
+                    buzzObserverTimer = setTimeout(() => {
+                        try {
+                            enhanceBuzzheavierContent();
+                        } catch (e) {
+                            console.error('Sinflix Modifier error during buzzheavier observer processing:', e);
+                        }
+                    }, 200);
                 });
                 observer.observe(document.body, { childList: true, subtree: true });
             } catch (e) {
@@ -3244,92 +3402,71 @@ ${'showFdCircle' in config ? `
             return;
         }
 
-        // Immediate content enhancement - no delay
+        // --- Content Enhancement ---
         try {
-            enhancePageContent();
+            enhancePageContentSync();
         } catch (e) {
-            console.error('Sinflix Modifier error during immediate enhancement:', e);
+            console.error('Sinflix Modifier error during initial enhancement:', e);
         }
-
-
 
         createSettingsUI();
         createFloatingButtons();
         createTopSearchBar();
 
-        const settingsModal = document.getElementById('kdrama-settings-modal');
-        window.addEventListener('scroll', () => {
-            if (settingsModal && settingsModal.style.display === 'flex') {
-                if (document.activeElement !== document.getElementById('kdrama-search-input')) {
-                    settingsModal.style.display = 'none';
+        // Global capture click delegation to handle download and chat links (handles dynamic updates too)
+        document.addEventListener('click', (e) => {
+            const link = e.target.closest('a');
+            if (!link || !link.href) return;
+
+            // 1. Chat link check
+            if (link.href.includes('my.cbox.ws/sin-flix')) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (config.chatBoxOpenStyle === 'popup') {
+                    openInCenter(link.href, 'sinflix_chat');
+                } else {
+                    window.open(link.href, '_blank');
+                }
+                return;
+            }
+
+            // 2. Download links check
+            const isDownloadLink = link.href.includes('buzzheavier.com')
+                                || link.href.includes('mega.nz')
+                                || link.href.includes('mega.co.nz')
+                                || link.href.includes('pst.moe')
+                                || link.href.includes('pixeldrain.com')
+                                || link.href.includes('ok.ru');
+
+            if (isDownloadLink) {
+                if (config.downloadLinkOpenStyle === 'popup') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openInCenter(link.href, 'sinflix_download');
+                } else {
+                    if (link.getAttribute('target') !== '_blank') {
+                        link.setAttribute('target', '_blank');
+                    }
                 }
             }
-        });
+        }, { capture: true });
 
-        // Single late-fallback retry in case the MutationObserver missed the content
-        // (e.g. content was already in the DOM but not yet observed). Fires after
-        // the page is fully interactive to avoid blocking early user input.
-        setTimeout(() => {
-            try {
-                enhancePageContent();
-            } catch (e) {
-                console.error('Sinflix Modifier error during fallback enhancement:', e);
-            }
-        }, 1200);
-
-        if (typeof MutationObserver !== 'undefined') {
-            // Debounce: wait 150ms after the last mutation before processing.
-            // This prevents dozens of expensive TreeWalker scans from firing
-            // back-to-back during the initial page load, which would block
-            // the main thread and make clicks unresponsive.
-            let mutationTimer = null;
-            const debouncedEnhance = () => {
-                clearTimeout(mutationTimer);
-                mutationTimer = setTimeout(() => {
-                    try {
-                        enhancePageContent();
-                    } catch (e) {
-                        console.error('Sinflix Modifier error during MutationObserver processing:', e);
+        // Throttle the settings-modal-close-on-scroll with rAF.
+        const settingsModal = document.getElementById('kdrama-settings-modal');
+        let modalScrollRafPending = false;
+        window.addEventListener('scroll', () => {
+            if (!settingsModal || settingsModal.style.display !== 'flex') return;
+            if (modalScrollRafPending) return;
+            modalScrollRafPending = true;
+            requestAnimationFrame(() => {
+                modalScrollRafPending = false;
+                if (settingsModal && settingsModal.style.display === 'flex') {
+                    if (document.activeElement !== document.getElementById('kdrama-search-input')) {
+                        settingsModal.style.display = 'none';
                     }
-                }, 150);
-            };
-
-            const observer = new MutationObserver((mutations) => {
-                let shouldProcess = false;
-                mutations.forEach((mutation) => {
-                    if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-                        if (mutation.target.closest('.entry-text article') || mutation.target.matches('.entry-text article')) {
-                            shouldProcess = true;
-                        }
-                    }
-                });
-
-                if (shouldProcess) {
-                    debouncedEnhance();
                 }
             });
-
-            const content = document.querySelector('.entry-text article');
-            if (content) {
-                observer.observe(content, { childList: true, subtree: true });
-                // Also process immediately if content already exists
-                try {
-                    enhancePageContent();
-                } catch (e) {
-                    console.error('Sinflix Modifier error during immediate content processing:', e);
-                }
-            } else {
-                const bodyObserver = new MutationObserver((mutations, obs) => {
-                    if (document.querySelector('.entry-text article')) {
-                        obs.disconnect();
-                        const foundContent = document.querySelector('.entry-text article');
-                        observer.observe(foundContent, { childList: true, subtree: true });
-                        debouncedEnhance();
-                    }
-                });
-                bodyObserver.observe(document.body, { childList: true, subtree: true });
-            }
-        }
+        }, { passive: true });
     }
 
     // Initialize the script — single entry point to avoid main-thread contention.
