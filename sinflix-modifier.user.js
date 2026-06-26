@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.27.09
+// @version      26.06.27.10
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
@@ -63,16 +63,14 @@
             to { transform: rotate(360deg); }
         }
         .bh-capsule-wrap {
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
             display: inline-flex;
             align-items: center;
             gap: 5px;
             flex-shrink: 0;
-        }
-        .wide .bh-capsule-wrap {
-            position: absolute;
-            right: 8px;
-            top: 50%;
-            transform: translateY(-50%);
             z-index: 5;
         }
         .bh-capsule {
@@ -2349,11 +2347,22 @@
             if (cap0) wrap.appendChild(cap0);
             if (cap1) wrap.appendChild(cap1);
 
-            const parent = linkEl.parentNode;
-            if (parent) {
-                parent.style.position = 'relative';
-                parent.style.paddingRight = '88px'; // Prevent link text from overlapping the buttons
-                parent.appendChild(wrap);
+            // Absolutely-position the wrap inside the Name <td>.
+            // We must NOT let it be inline (that breaks table layout in Firefox).
+            const td = linkEl.closest('td') || linkEl.parentNode;
+            if (td) {
+                td.style.position = 'relative';
+                td.style.overflow = 'hidden'; // keep buttons clipped to cell
+
+                // Truncate link text so it never overlaps the buttons
+                linkEl.style.display = 'inline-block';
+                linkEl.style.maxWidth = 'calc(100% - 92px)';
+                linkEl.style.overflow = 'hidden';
+                linkEl.style.textOverflow = 'ellipsis';
+                linkEl.style.whiteSpace = 'nowrap';
+                linkEl.style.verticalAlign = 'middle';
+
+                td.appendChild(wrap);
             }
         };
 
