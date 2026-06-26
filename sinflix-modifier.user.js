@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.27.07
+// @version      26.06.27.09
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
@@ -45,10 +45,10 @@
         // NEW: Google search keyword suffix
         googleSearchSuffix: GM_getValue('googleSearchSuffix', 'TV Series'),
         // NEW: Buzzheavier enhancements
-        buzzheavierEnhancements: GM_getValue('buzzheavierEnhancements', false),
-        buzzSplitQuality: GM_getValue('buzzSplitQuality', false),
-        buzzDirectDownload: GM_getValue('buzzDirectDownload', false),
-        buzzCopyLinks: GM_getValue('buzzCopyLinks', false),
+        buzzheavierEnhancements: GM_getValue('buzzheavierEnhancements', true),
+        buzzSplitQuality: GM_getValue('buzzSplitQuality', true),
+        buzzDirectDownload: GM_getValue('buzzDirectDownload', true),
+        buzzCopyLinks: GM_getValue('buzzCopyLinks', true),
         // Mega.nz → Fetchrr.io pill
         megaFetchrr: GM_getValue('megaFetchrr', true),
         megaFetchrrOpenStyle: GM_getValue('megaFetchrrOpenStyle', 'tab'),
@@ -2237,13 +2237,29 @@
 
         // Find the main file-list tbody: prefer #tbody, fall back to any tbody that
         // contains at least one row with a file anchor.
-        const mainTbody = document.querySelector('#tbody')
-            || (() => {
+        // Cache the found tbody via a dataset attribute so repeated observer calls
+        // always reference the same element (not one of the quality-split tbodies).
+        let mainTbody = document.querySelector('#tbody[data-sfx-main]')
+            || document.querySelector('table tbody[data-sfx-main]');
+
+        if (!mainTbody) {
+            // Look for #tbody first (fast path)
+            const byId = document.querySelector('#tbody');
+            if (byId && getFileLink(byId.querySelector('tr'))) {
+                mainTbody = byId;
+            } else {
+                // Scan every tbody, skip ones we injected (id starts with 'tbody-')
                 for (const tb of document.querySelectorAll('table tbody')) {
-                    if (tb.querySelector('tr') && getFileLink(tb.querySelector('tr'))) return tb;
+                    if (tb.id && tb.id.startsWith('tbody-')) continue; // our quality tbody
+                    const firstRow = tb.querySelector('tr');
+                    if (firstRow && getFileLink(firstRow)) {
+                        mainTbody = tb;
+                        break;
+                    }
                 }
-                return null;
-            })();
+            }
+            if (mainTbody) mainTbody.dataset.sfxMain = '1';
+        }
 
         const isHomePage = mainTbody !== null
             && window.location.pathname.length > 1
@@ -2428,8 +2444,13 @@
                     let targetTbody = document.getElementById(`tbody-${quality}`);
                     if (!targetTbody) {
                         const parentTable = mainTbody ? mainTbody.closest('table') : document.querySelector('table');
+                        if (!parentTable) {
+                            addCapsulesToRow(row); // no table to split, just add buttons
+                            return;
+                        }
                         const container = parentTable.parentNode;
-                        const headerRow = parentTable.querySelector('thead').outerHTML;
+                        const theadEl = parentTable.querySelector('thead');
+                        const headerRow = theadEl ? theadEl.outerHTML : '';
                         const tableClass = parentTable.className;
 
                         const wrapper = document.createElement('div');
@@ -2471,10 +2492,12 @@
         };
 
         if (isHomePage) {
-            if (mainTbody) {
+            // Hide the original table once when quality split is on
+            if (mainTbody && config.buzzSplitQuality && !mainTbody.dataset.sfxHidden) {
                 const parentTable = mainTbody.closest('table');
-                if (parentTable && config.buzzSplitQuality) {
+                if (parentTable) {
                     parentTable.style.display = 'none';
+                    mainTbody.dataset.sfxHidden = '1';
                 }
             }
 
