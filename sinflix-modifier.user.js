@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.26.01
+// @version      26.06.26.02
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links, copy-all-links per resolution, and Mega.nz bypass circles (click to instantly bypass & download, or copy all bypass links). On mega.nz file pages: floating bypass download button that skips Mega quota limits.
 // @license      MIT
 // @author       asurpbs
@@ -1109,6 +1109,115 @@
             background-color: #6a5e5e;
             color: #e0aeb4;
         }
+
+        /* --- BuzzHeavier Copy Progress Pill --- */
+        #bh-copy-pill {
+            position: fixed;
+            top: 14px;
+            left: 50%;
+            z-index: 10010;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 20px;
+            height: 44px;
+            border-radius: 22px;
+            background: rgba(16, 16, 20, 0.92);
+            backdrop-filter: blur(22px) saturate(180%);
+            -webkit-backdrop-filter: blur(22px) saturate(180%);
+            border: 1px solid rgba(255,255,255,0.11);
+            box-shadow: 0 6px 36px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,0,0,0.3);
+            color: #e8eaed;
+            font-family: "Segoe UI", system-ui, sans-serif;
+            font-size: 13px;
+            white-space: nowrap;
+            will-change: transform, opacity;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateX(-50%) translateY(-72px) translateZ(0);
+            transition:
+                opacity 0.3s ease,
+                transform 0.5s cubic-bezier(0.34, 1.38, 0.64, 1),
+                border-color 0.35s ease,
+                box-shadow 0.35s ease;
+        }
+        #bh-copy-pill.bh-pill-visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0px) translateZ(0);
+        }
+        #bh-copy-pill.bh-pill-success {
+            border-color: rgba(52, 168, 83, 0.55);
+            box-shadow: 0 6px 32px rgba(52,168,83,0.28), 0 0 0 1px rgba(0,0,0,0.25);
+        }
+        #bh-copy-pill.bh-pill-error {
+            border-color: rgba(234, 67, 53, 0.55);
+            box-shadow: 0 6px 32px rgba(234,67,53,0.28), 0 0 0 1px rgba(0,0,0,0.25);
+        }
+        #bh-copy-pill .bh-pill-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+            color: rgba(255,255,255,0.65);
+            transition: color 0.3s ease;
+        }
+        #bh-copy-pill .bh-pill-icon svg {
+            width: 15px;
+            height: 15px;
+            display: block;
+        }
+        #bh-copy-pill .bh-pill-icon.bh-pill-spinning svg {
+            animation: bh-spin 0.7s linear infinite;
+        }
+        #bh-copy-pill.bh-pill-success .bh-pill-icon { color: #34a853; }
+        #bh-copy-pill.bh-pill-error   .bh-pill-icon { color: #ea4335; }
+        #bh-copy-pill .bh-pill-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: rgba(255,255,255,0.88);
+            letter-spacing: 0.1px;
+            transition: color 0.3s ease;
+        }
+        #bh-copy-pill .bh-pill-sep {
+            width: 1px;
+            height: 14px;
+            background: rgba(255,255,255,0.1);
+            flex-shrink: 0;
+        }
+        #bh-copy-pill .bh-pill-progress-wrap {
+            width: 78px;
+            height: 3px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 2px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        #bh-copy-pill .bh-pill-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #4285f4, #7c4dff);
+            border-radius: 2px;
+            transition: width 0.38s cubic-bezier(0.4,0,0.2,1), background 0.35s ease;
+        }
+        #bh-copy-pill.bh-pill-success .bh-pill-bar {
+            background: linear-gradient(90deg, #34a853, #00bcd4);
+        }
+        #bh-copy-pill.bh-pill-error .bh-pill-bar {
+            background: linear-gradient(90deg, #ea4335, #ff6d00);
+        }
+        #bh-copy-pill .bh-pill-count {
+            font-size: 11px;
+            font-weight: 700;
+            color: rgba(255,255,255,0.38);
+            letter-spacing: 0.3px;
+            min-width: 38px;
+            text-align: right;
+            transition: color 0.3s ease;
+        }
+        #bh-copy-pill.bh-pill-success .bh-pill-count { color: rgba(52,168,83,0.7); }
+        #bh-copy-pill.bh-pill-error   .bh-pill-count { color: rgba(234,67,53,0.7); }
     `);
 
     // --- Enhanced Drama Detection Patterns ---
@@ -1865,6 +1974,79 @@
         });
     }
 
+    // --- BuzzHeavier Copy-All Progress Pill ---
+    // A dynamic island–style pill that shows live progress when bulk-copying links.
+    const buzzPill = (() => {
+        const SVG_SPIN  = `<svg viewBox="0 0 24 24"><path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z" fill="currentColor"/></svg>`;
+        const SVG_CHECK = `<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>`;
+        const SVG_CROSS = `<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/></svg>`;
+        const SVG_COPY  = `<svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" fill="currentColor"/></svg>`;
+
+        let pill = null;
+        let dismissTimer = null;
+
+        function getOrCreate() {
+            if (pill && document.body.contains(pill)) return pill;
+            pill = document.createElement('div');
+            pill.id = 'bh-copy-pill';
+            pill.innerHTML = `
+                <div class="bh-pill-icon" id="bh-pill-icon"></div>
+                <span class="bh-pill-label" id="bh-pill-label"></span>
+                <div class="bh-pill-sep"></div>
+                <div class="bh-pill-progress-wrap">
+                    <div class="bh-pill-bar" id="bh-pill-bar"></div>
+                </div>
+                <span class="bh-pill-count" id="bh-pill-count"></span>
+            `;
+            document.body.appendChild(pill);
+            return pill;
+        }
+
+        function show(state, label, done, total) {
+            clearTimeout(dismissTimer);
+            const p   = getOrCreate();
+            const ico = p.querySelector('#bh-pill-icon');
+            const lbl = p.querySelector('#bh-pill-label');
+            const bar = p.querySelector('#bh-pill-bar');
+            const cnt = p.querySelector('#bh-pill-count');
+
+            p.classList.remove('bh-pill-success', 'bh-pill-error');
+            ico.classList.remove('bh-pill-spinning');
+
+            if (state === 'progress') {
+                ico.innerHTML = SVG_SPIN;
+                ico.classList.add('bh-pill-spinning');
+                lbl.textContent = label || 'Fetching…';
+                const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+                bar.style.width = pct + '%';
+                cnt.textContent = total > 0 ? `${done} / ${total}` : '';
+            } else if (state === 'success') {
+                p.classList.add('bh-pill-success');
+                ico.innerHTML = SVG_CHECK;
+                lbl.textContent = label || 'Copied!';
+                bar.style.width = '100%';
+                cnt.textContent = total > 0 ? `${total} link${total !== 1 ? 's' : ''}` : '';
+                dismissTimer = setTimeout(hide, 3000);
+            } else if (state === 'error') {
+                p.classList.add('bh-pill-error');
+                ico.innerHTML = SVG_CROSS;
+                lbl.textContent = label || 'Failed';
+                bar.style.width = '100%';
+                cnt.textContent = '';
+                dismissTimer = setTimeout(hide, 3500);
+            }
+
+            p.classList.add('bh-pill-visible');
+        }
+
+        function hide() {
+            if (!pill) return;
+            pill.classList.remove('bh-pill-visible');
+        }
+
+        return { show, hide };
+    })();
+
     function enhanceBuzzheavierContent() {
         if (!config.buzzheavierEnhancements) return false;
         if (!window.location.hostname.includes('buzzheavier.com')) return false;
@@ -1994,30 +2176,50 @@
 
         const copyLinks = (linksArray, btnElement) => {
             if (!linksArray || linksArray.length === 0) return;
-            showNotification('Copying links... Please wait!', 'info');
 
+            const total     = linksArray.length;
+            let processed   = 0;
             let directLinks = [];
-            let processed = 0;
-            let total = linksArray.length;
+
+            // Show pill immediately in "fetching" state
+            buzzPill.show('progress', 'Fetching links…', 0, total);
+
+            // Disable button so it can't be double-clicked
+            const origText = btnElement ? btnElement.innerText : '';
+            if (btnElement) {
+                btnElement.disabled = true;
+                btnElement.style.opacity = '0.5';
+            }
 
             linksArray.forEach(pageUrl => {
                 fetchDirectLink(pageUrl, 0, (directUrl) => {
                     processed++;
-                    if (directUrl) {
-                        directLinks.push(directUrl);
-                    }
+                    if (directUrl) directLinks.push(directUrl);
+
+                    // Update pill progress on every resolved link
+                    buzzPill.show('progress', 'Fetching links…', processed, total);
+
                     if (processed === total) {
+                        // Re-enable button
+                        if (btnElement) {
+                            btnElement.disabled = false;
+                            btnElement.style.opacity = '';
+                        }
+
                         if (directLinks.length > 0) {
                             navigator.clipboard.writeText(directLinks.join('\n')).then(() => {
-                                showNotification('All direct links copied successfully!', 'success');
-                                const oldText = btnElement.innerText;
-                                btnElement.innerText = 'Copied!';
-                                setTimeout(() => btnElement.innerText = oldText, 2000);
+                                // Morph pill to success state
+                                buzzPill.show('success', 'Copied to clipboard!', directLinks.length, directLinks.length);
+                                if (btnElement) {
+                                    btnElement.innerText = '✓ Copied!';
+                                    setTimeout(() => { btnElement.innerText = origText; }, 2200);
+                                }
                             }).catch(() => {
-                                showNotification('Failed to copy links!', 'error');
+                                buzzPill.show('error', 'Clipboard write failed', 0, 0);
                             });
                         } else {
-                            showNotification('No direct links found!', 'error');
+                            buzzPill.show('error', 'No direct links found', 0, 0);
+                            if (btnElement) btnElement.innerText = origText;
                         }
                     }
                 });
