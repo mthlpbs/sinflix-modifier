@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.26.02
+// @version      26.06.26.03
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links, copy-all-links per resolution, and Mega.nz bypass circles (click to instantly bypass & download, or copy all bypass links). On mega.nz file pages: floating bypass download button that skips Mega quota limits.
 // @license      MIT
 // @author       asurpbs
@@ -1119,7 +1119,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 0 20px;
+            padding: 0 16px 0 20px;
             height: 44px;
             border-radius: 22px;
             background: rgba(16, 16, 20, 0.92);
@@ -1141,9 +1141,11 @@
                 border-color 0.35s ease,
                 box-shadow 0.35s ease;
         }
+        /* Enable interactions only while the pill is visible */
         #bh-copy-pill.bh-pill-visible {
             opacity: 1;
             transform: translateX(-50%) translateY(0px) translateZ(0);
+            pointer-events: auto;
         }
         #bh-copy-pill.bh-pill-success {
             border-color: rgba(52, 168, 83, 0.55);
@@ -1218,6 +1220,46 @@
         }
         #bh-copy-pill.bh-pill-success .bh-pill-count { color: rgba(52,168,83,0.7); }
         #bh-copy-pill.bh-pill-error   .bh-pill-count { color: rgba(234,67,53,0.7); }
+        #bh-copy-pill.bh-pill-cancelled .bh-pill-count { color: rgba(255,160,0,0.7); }
+        #bh-copy-pill.bh-pill-cancelled .bh-pill-bar {
+            background: linear-gradient(90deg, #ffa000, #ff6d00);
+        }
+        #bh-copy-pill.bh-pill-cancelled .bh-pill-icon { color: #ffa000; }
+        /* Cancel button inside the pill */
+        #bh-copy-pill .bh-pill-cancel {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            margin-left: 4px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255,255,255,0.08);
+            color: rgba(255,255,255,0.45);
+            cursor: pointer;
+            flex-shrink: 0;
+            padding: 0;
+            transition: background 0.18s ease, color 0.18s ease, transform 0.15s ease;
+        }
+        #bh-copy-pill .bh-pill-cancel:hover {
+            background: rgba(234, 67, 53, 0.28);
+            color: #ea4335;
+            transform: scale(1.12);
+        }
+        #bh-copy-pill .bh-pill-cancel:active { transform: scale(0.92); }
+        #bh-copy-pill .bh-pill-cancel svg {
+            width: 11px;
+            height: 11px;
+            display: block;
+            pointer-events: none;
+        }
+        /* Hide cancel button in terminal states */
+        #bh-copy-pill.bh-pill-success .bh-pill-cancel,
+        #bh-copy-pill.bh-pill-error   .bh-pill-cancel,
+        #bh-copy-pill.bh-pill-cancelled .bh-pill-cancel {
+            display: none;
+        }
     `);
 
     // --- Enhanced Drama Detection Patterns ---
@@ -1971,19 +2013,19 @@
                     });
                 }
             });
-        });
-    }
-
-    // --- BuzzHeavier Copy-All Progress Pill ---
+            // --- BuzzHeavier Copy-All Progress Pill ---
     // A dynamic island–style pill that shows live progress when bulk-copying links.
     const buzzPill = (() => {
-        const SVG_SPIN  = `<svg viewBox="0 0 24 24"><path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z" fill="currentColor"/></svg>`;
-        const SVG_CHECK = `<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>`;
-        const SVG_CROSS = `<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/></svg>`;
-        const SVG_COPY  = `<svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" fill="currentColor"/></svg>`;
+        const SVG_SPIN   = `<svg viewBox="0 0 24 24"><path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z" fill="currentColor"/></svg>`;
+        const SVG_CHECK  = `<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>`;
+        const SVG_CROSS  = `<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/></svg>`;
+        const SVG_CANCEL = `<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/></svg>`;
+        const SVG_STOP   = `<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor"/></svg>`;
 
-        let pill = null;
+        let pill         = null;
         let dismissTimer = null;
+        let cancelled    = false;
+        let cancelCb     = null;   // callback set by copyLinks
 
         function getOrCreate() {
             if (pill && document.body.contains(pill)) return pill;
@@ -1997,20 +2039,31 @@
                     <div class="bh-pill-bar" id="bh-pill-bar"></div>
                 </div>
                 <span class="bh-pill-count" id="bh-pill-count"></span>
+                <button class="bh-pill-cancel" id="bh-pill-cancel" title="Cancel copy">${SVG_STOP}</button>
             `;
+            // Wire up cancel button
+            pill.querySelector('#bh-pill-cancel').addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (cancelled) return;
+                cancelled = true;
+                if (typeof cancelCb === 'function') cancelCb();
+                // Morph to 'cancelled' state immediately
+                _setState('cancelled', 'Cancelled', 0, 0);
+                dismissTimer = setTimeout(hide, 2000);
+            });
             document.body.appendChild(pill);
             return pill;
         }
 
-        function show(state, label, done, total) {
-            clearTimeout(dismissTimer);
+        // Internal helper — set visual state without resetting cancelled flag
+        function _setState(state, label, done, total) {
             const p   = getOrCreate();
             const ico = p.querySelector('#bh-pill-icon');
             const lbl = p.querySelector('#bh-pill-label');
             const bar = p.querySelector('#bh-pill-bar');
             const cnt = p.querySelector('#bh-pill-count');
 
-            p.classList.remove('bh-pill-success', 'bh-pill-error');
+            p.classList.remove('bh-pill-success', 'bh-pill-error', 'bh-pill-cancelled');
             ico.classList.remove('bh-pill-spinning');
 
             if (state === 'progress') {
@@ -2026,17 +2079,29 @@
                 lbl.textContent = label || 'Copied!';
                 bar.style.width = '100%';
                 cnt.textContent = total > 0 ? `${total} link${total !== 1 ? 's' : ''}` : '';
-                dismissTimer = setTimeout(hide, 3000);
             } else if (state === 'error') {
                 p.classList.add('bh-pill-error');
                 ico.innerHTML = SVG_CROSS;
                 lbl.textContent = label || 'Failed';
                 bar.style.width = '100%';
                 cnt.textContent = '';
-                dismissTimer = setTimeout(hide, 3500);
+            } else if (state === 'cancelled') {
+                p.classList.add('bh-pill-cancelled');
+                ico.innerHTML = SVG_CROSS;
+                lbl.textContent = label || 'Cancelled';
+                bar.style.width  = bar.style.width; // freeze at current position
+                cnt.textContent  = '';
             }
-
             p.classList.add('bh-pill-visible');
+        }
+
+        function show(state, label, done, total) {
+            // Don't override state if already cancelled
+            if (cancelled && state === 'progress') return;
+            clearTimeout(dismissTimer);
+            _setState(state, label, done, total);
+            if (state === 'success') dismissTimer = setTimeout(hide, 3000);
+            if (state === 'error')   dismissTimer = setTimeout(hide, 3500);
         }
 
         function hide() {
@@ -2044,7 +2109,15 @@
             pill.classList.remove('bh-pill-visible');
         }
 
-        return { show, hide };
+        // Register the cancel callback; also resets cancelled flag for a fresh run
+        function onCancel(cb) {
+            cancelled = false;
+            cancelCb  = cb;
+        }
+
+        function isCancelled() { return cancelled; }
+
+        return { show, hide, onCancel, isCancelled };
     })();
 
     function enhanceBuzzheavierContent() {
@@ -2181,18 +2254,34 @@
             let processed   = 0;
             let directLinks = [];
 
+            // Helper: restore the trigger button to its original state
+            const restoreBtn = () => {
+                if (!btnElement) return;
+                btnElement.disabled     = false;
+                btnElement.style.opacity = '';
+            };
+
+            // Register cancel handler FIRST — this also resets the cancelled flag
+            buzzPill.onCancel(() => {
+                restoreBtn();
+                if (btnElement) btnElement.innerText = origText;
+            });
+
             // Show pill immediately in "fetching" state
             buzzPill.show('progress', 'Fetching links…', 0, total);
 
             // Disable button so it can't be double-clicked
             const origText = btnElement ? btnElement.innerText : '';
             if (btnElement) {
-                btnElement.disabled = true;
+                btnElement.disabled      = true;
                 btnElement.style.opacity = '0.5';
             }
 
             linksArray.forEach(pageUrl => {
                 fetchDirectLink(pageUrl, 0, (directUrl) => {
+                    // Silently drop results that arrive after cancellation
+                    if (buzzPill.isCancelled()) return;
+
                     processed++;
                     if (directUrl) directLinks.push(directUrl);
 
@@ -2200,11 +2289,7 @@
                     buzzPill.show('progress', 'Fetching links…', processed, total);
 
                     if (processed === total) {
-                        // Re-enable button
-                        if (btnElement) {
-                            btnElement.disabled = false;
-                            btnElement.style.opacity = '';
-                        }
+                        restoreBtn();
 
                         if (directLinks.length > 0) {
                             navigator.clipboard.writeText(directLinks.join('\n')).then(() => {
