@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.27.11
+// @version      26.06.27.12
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
@@ -2530,20 +2530,26 @@
         };
 
         if (isHomePage) {
-            // Hide the original table once when quality split is on
-            if (mainTbody && config.buzzSplitQuality && !mainTbody.dataset.sfxHidden) {
-                const parentTable = mainTbody.closest('table');
-                if (parentTable) {
-                    parentTable.style.display = 'none';
-                    mainTbody.dataset.sfxHidden = '1';
-                }
-            }
-
             // Select ALL rows inside the detected tbody — no class dependency
             const rows = Array.from(
                 (mainTbody || document).querySelectorAll('tr:not(.sfx-processed)')
             ).filter(row => getFileLink(row) !== null);
-            processRows(rows);
+
+            // Only process if there are actual file rows — prevents hiding the table
+            // on empty first load (HTMX loads rows async, so we wait for the observer
+            // to fire again once HTMX has populated the tbody).
+            if (rows.length > 0) {
+                // Hide original table only AFTER we have rows to move (quality split).
+                // Hiding early on an empty tbody causes Firefox to never show quality sections.
+                if (mainTbody && config.buzzSplitQuality && !mainTbody.dataset.sfxHidden) {
+                    const parentTable = mainTbody.closest('table');
+                    if (parentTable) {
+                        parentTable.style.display = 'none';
+                        mainTbody.dataset.sfxHidden = '1';
+                    }
+                }
+                processRows(rows);
+            }
 
             if (!config.buzzSplitQuality && mainTbody && config.buzzCopyLinks) {
                 const parentTable = mainTbody.closest('table');
@@ -3960,10 +3966,8 @@ ${'showFdCircle' in config ? `
                 enhanceBuzzheavierContent();
 
                 // Debounced MutationObserver for HTMX SPA navigation & dynamic rendering.
-                // Without debouncing, each HTMX DOM update fires the observer many times
-                // in rapid succession (one per node), causing excessive processing in Chromium.
                 let buzzObserverTimer = null;
-                const observer = new MutationObserver(() => {
+                const runBuzzEnhance = () => {
                     clearTimeout(buzzObserverTimer);
                     buzzObserverTimer = setTimeout(() => {
                         try {
@@ -3971,9 +3975,17 @@ ${'showFdCircle' in config ? `
                         } catch (e) {
                             console.error('Sinflix Modifier error during buzzheavier observer processing:', e);
                         }
-                    }, 200);
-                });
+                    }, 350);
+                };
+
+                const observer = new MutationObserver(runBuzzEnhance);
                 observer.observe(document.body, { childList: true, subtree: true });
+
+                // Also listen for HTMX events — these fire AFTER HTMX has
+                // finished inserting content, giving us a reliable trigger even
+                // when the MutationObserver debounce is still pending.
+                document.body.addEventListener('htmx:afterSwap', runBuzzEnhance);
+                document.body.addEventListener('htmx:afterSettle', runBuzzEnhance);
             } catch (e) {
                 console.error('Sinflix Modifier error during buzzheavier enhancement:', e);
             }
