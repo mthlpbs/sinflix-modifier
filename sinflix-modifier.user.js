@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.10.13
+// @version      26.06.26.01
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links, copy-all-links per resolution, and Mega.nz bypass circles (click to instantly bypass & download, or copy all bypass links). On mega.nz file pages: floating bypass download button that skips Mega quota limits.
 // @license      MIT
 // @author       asurpbs
@@ -1697,7 +1697,18 @@
     const buzzDownloadUrlsCache = new Map();
 
     function resolveBuzzDownloadUrlsFromDoc(doc, baseUrl) {
-        return Array.from(doc.querySelectorAll('a.gay-button[hx-get*="/download"]'))
+        // Use broad selector first (hx-get*="/download"), then narrow with .gay-button if needed.
+        // BuzzHeavier may change class names; hx-get attribute is the reliable signal.
+        let anchors = Array.from(doc.querySelectorAll('a[hx-get*="/download"]'));
+        // De-duplicate by hx-get value (avoid counting the same endpoint twice)
+        const seen = new Set();
+        anchors = anchors.filter(a => {
+            const v = a.getAttribute('hx-get');
+            if (!v || seen.has(v)) return false;
+            seen.add(v);
+            return true;
+        });
+        return anchors
             .map(anchor => anchor.getAttribute('hx-get'))
             .map(endpoint => endpoint?.replace(/&amp;/g, '&'))
             .map(endpoint => {
@@ -1778,27 +1789,77 @@
                 return;
             }
 
+            const htmxHeaders = {
+                "hx-current-url": pageUrl,
+                "hx-request": "true",
+                "referer": pageUrl
+            };
+
+            // Helper: extract redirect URL from response headers or body
+            function extractRedirect(response) {
+                const headers = response.responseHeaders || '';
+                const m = headers.match(/hx-redirect:\s*([^\r\n]+)/i)
+                       || headers.match(/location:\s*([^\r\n]+)/i);
+                if (m && m[1]) return m[1].trim();
+                // Some servers embed HX-Redirect in the response body as a meta tag or JSON
+                const body = response.responseText || '';
+                const bodyM = body.match(/["']?hx-redirect["']?\s*:\s*["']([^"']+)["']/i)
+                           || body.match(/window\.location(?:\.href)?\s*=\s*["']([^"']+)["']/i);
+                if (bodyM && bodyM[1]) return bodyM[1].trim();
+                return null;
+            }
+
+            // Try HEAD first (fast, low bandwidth)
             GM_xmlhttpRequest({
                 method: "HEAD",
                 url: downloadUrl,
-                headers: {
-                    "hx-current-url": pageUrl,
-                    "hx-request": "true",
-                    "referer": pageUrl
-                },
+                headers: htmxHeaders,
                 onload: function(response) {
-                    const headers = response.responseHeaders || '';
-                    const headerMatch = headers.match(/hx-redirect:\s*(.*)/i) || headers.match(/location:\s*(.*)/i);
-                    if (headerMatch && headerMatch[1]) {
-                        callback(headerMatch[1].trim());
+                    const redirect = extractRedirect(response);
+                    if (redirect) {
+                        callback(redirect);
                     } else {
-                        showNotification("Failed to obtain direct link redirect.", "error");
-                        callback(null);
+                        // HEAD gave no redirect – fall back to GET (some servers require it)
+                        GM_xmlhttpRequest({
+                            method: "GET",
+                            url: downloadUrl,
+                            headers: htmxHeaders,
+                            onload: function(getResponse) {
+                                const getRedirect = extractRedirect(getResponse);
+                                if (getRedirect) {
+                                    callback(getRedirect);
+                                } else {
+                                    showNotification("Failed to obtain direct link.", "error");
+                                    callback(null);
+                                }
+                            },
+                            onerror: function() {
+                                showNotification("Network error obtaining direct link.", "error");
+                                callback(null);
+                            }
+                        });
                     }
                 },
-                onerror: function(err) {
-                    showNotification("Network error obtaining direct link.", "error");
-                    callback(null);
+                onerror: function() {
+                    // HEAD blocked entirely – try GET directly
+                    GM_xmlhttpRequest({
+                        method: "GET",
+                        url: downloadUrl,
+                        headers: htmxHeaders,
+                        onload: function(getResponse) {
+                            const getRedirect = extractRedirect(getResponse);
+                            if (getRedirect) {
+                                callback(getRedirect);
+                            } else {
+                                showNotification("Network error obtaining direct link.", "error");
+                                callback(null);
+                            }
+                        },
+                        onerror: function() {
+                            showNotification("Network error obtaining direct link.", "error");
+                            callback(null);
+                        }
+                    });
                 }
             });
         });
@@ -1839,7 +1900,8 @@
         };
 
         const isHomePage = window.location.pathname.length > 1 && !window.location.pathname.endsWith('/download') && (document.querySelector('#tbody') || document.querySelector('[id^="tbody-"]'));
-        const isSinglePage = !!document.querySelector('a.gay-button[hx-get*="/download"]');
+        // Use a broad selector so class-name changes on BuzzHeavier don't break detection
+        const isSinglePage = !!document.querySelector('a[hx-get*="/download"]');
 
         const handleAction = (type, pageUrl, btnElement, serverIndex) => {
             if (btnElement.classList.contains('bh-loading')) return;
@@ -1901,19 +1963,26 @@
             if (config.buzzDirectDownload) {
                 cap.appendChild(createCapBtn(ICON_DL, `Download – Server ${serverNumber}`, 'dl', fileUrl, serverIndex));
             }
-            return cap;
+            // Return null when no features are enabled (avoid injecting empty capsules)
+            return cap.children.length > 0 ? cap : null;
         };
 
         const addCapsulesToRow = (row) => {
+            // Skip if neither copy nor download feature is enabled
+            if (!config.buzzCopyLinks && !config.buzzDirectDownload) return;
             const linkEl = getFileLink(row);
             if (!linkEl) return;
             if (row.querySelector('.bh-capsule-wrap')) return;
 
             const fileUrl = linkEl.href;
+            const cap0 = createCapsule(fileUrl, 0);
+            const cap1 = createCapsule(fileUrl, 1);
+            if (!cap0 && !cap1) return; // nothing to inject
+
             const wrap = document.createElement('span');
             wrap.className = 'bh-capsule-wrap';
-            wrap.appendChild(createCapsule(fileUrl, 0));
-            wrap.appendChild(createCapsule(fileUrl, 1));
+            if (cap0) wrap.appendChild(cap0);
+            if (cap1) wrap.appendChild(cap1);
 
             const parent = linkEl.parentNode;
             if (parent) {
@@ -2049,15 +2118,22 @@
             }
         } else if (isSinglePage) {
             // On single-file pages inject one combined capsule-wrap after the FIRST server button
-            const firstDlBtn = document.querySelector('a.gay-button[hx-get*="/download"]:not([hx-get*="alt=true"])')
-                            || document.querySelector('a.gay-button[hx-get*="/download"]');
-            if (firstDlBtn && !firstDlBtn.parentNode.querySelector('.bh-capsule-wrap')) {
-                const fileUrl = window.location.href;
-                const wrap = document.createElement('span');
-                wrap.className = 'bh-capsule-wrap';
-                wrap.appendChild(createCapsule(fileUrl, 0));
-                wrap.appendChild(createCapsule(fileUrl, 1));
-                firstDlBtn.parentNode.appendChild(wrap);
+            if (config.buzzCopyLinks || config.buzzDirectDownload) {
+                // Prefer the non-alt server button; fall back to any download button
+                const firstDlBtn = document.querySelector('a[hx-get*="/download"]:not([hx-get*="alt=true"])')
+                                || document.querySelector('a[hx-get*="/download"]');
+                if (firstDlBtn && !firstDlBtn.parentNode.querySelector('.bh-capsule-wrap')) {
+                    const fileUrl = window.location.href;
+                    const cap0 = createCapsule(fileUrl, 0);
+                    const cap1 = createCapsule(fileUrl, 1);
+                    if (cap0 || cap1) {
+                        const wrap = document.createElement('span');
+                        wrap.className = 'bh-capsule-wrap';
+                        if (cap0) wrap.appendChild(cap0);
+                        if (cap1) wrap.appendChild(cap1);
+                        firstDlBtn.parentNode.appendChild(wrap);
+                    }
+                }
             }
         }
 
