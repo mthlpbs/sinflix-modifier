@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.27.12
+// @version      26.06.27.13
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
@@ -304,6 +304,7 @@
             opacity: 0;
             transition: opacity 0.2s ease-out;
             overscroll-behavior: contain;
+            overflow: hidden;
         }
         #kdrama-settings-modal.show {
             opacity: 1;
@@ -3291,6 +3292,7 @@ ${'showFdCircle' in config ? `
             e.preventDefault();
             e.stopPropagation();
             modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden'; // lock page scroll while modal is open
             // Add a small delay for the animation
             setTimeout(() => modal.classList.add('show'), 10);
         });
@@ -3298,6 +3300,7 @@ ${'showFdCircle' in config ? `
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 modal.classList.remove('show');
+                document.body.style.overflow = ''; // restore page scroll
                 setTimeout(() => modal.style.display = 'none', 200);
             }
         });
@@ -3306,6 +3309,7 @@ ${'showFdCircle' in config ? `
             e.preventDefault();
             e.stopPropagation();
             modal.classList.remove('show');
+            document.body.style.overflow = ''; // restore page scroll
             setTimeout(() => modal.style.display = 'none', 200);
         });
 
@@ -3313,6 +3317,7 @@ ${'showFdCircle' in config ? `
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && modal.style.display === 'flex') {
                 modal.classList.remove('show');
+                document.body.style.overflow = ''; // restore page scroll
                 setTimeout(() => modal.style.display = 'none', 200);
                 e.preventDefault();
             }
@@ -3531,7 +3536,11 @@ ${'showFdCircle' in config ? `
         capSettings.addEventListener('click', (e) => {
             e.stopPropagation();
             const modal = document.getElementById('kdrama-settings-modal');
-            if (modal) { modal.style.display = 'flex'; setTimeout(() => modal.classList.add('show'), 10); }
+            if (modal) {
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden'; // lock page scroll while modal is open
+                setTimeout(() => modal.classList.add('show'), 10);
+            }
         });
         wrap.appendChild(capSettings);
 
@@ -4042,11 +4051,16 @@ ${'showFdCircle' in config ? `
             }
         }, { capture: true });
 
-        // Throttle the settings-modal-close-on-scroll with rAF.
+        // Close settings modal on window scroll — but NOT when scrolling
+        // inside the modal's own scrollable body (that would make the modal
+        // close itself whenever the user scrolls the settings list).
         const settingsModal = document.getElementById('kdrama-settings-modal');
+        const settingsModalBody = settingsModal ? settingsModal.querySelector('.kdrama-modal-body') : null;
         let modalScrollRafPending = false;
-        window.addEventListener('scroll', () => {
+        window.addEventListener('scroll', (e) => {
             if (!settingsModal || settingsModal.style.display !== 'flex') return;
+            // If the scroll originated from inside the modal body, ignore it
+            if (settingsModalBody && settingsModalBody.contains(e.target)) return;
             if (modalScrollRafPending) return;
             modalScrollRafPending = true;
             requestAnimationFrame(() => {
@@ -4054,6 +4068,9 @@ ${'showFdCircle' in config ? `
                 if (settingsModal && settingsModal.style.display === 'flex') {
                     if (document.activeElement !== document.getElementById('kdrama-search-input')) {
                         settingsModal.style.display = 'none';
+                        settingsModal.classList.remove('show');
+                        // Restore body scroll when modal closes via scroll
+                        document.body.style.overflow = '';
                     }
                 }
             });
