@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.26.05
-// @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled so you can get a direct, unthrottled download mirror.
+// @version      26.06.26.06
+// @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
 // @match        https://rentry.co/sin-flix
@@ -10,6 +10,7 @@
 // @match        https://pst.moe/paste/*
 // @match        https://buzzheavier.com/*
 // @match        https://mega.nz/*
+// @match        https://fetchrr.io/*
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_addStyle
@@ -1609,10 +1610,12 @@
     }
 
     // --- Helper: open a mega.nz link in Fetchrr.io ---
-    // openStyle: 'tab' | 'popup' | 'self'
+    // Stores the URL in GM storage, then opens https://fetchrr.io/.
+    // The script auto-fills the input when fetchrr.io loads.
     function openMegaInFetchrr(megaUrl, openStyle) {
         const style = openStyle || config.megaFetchrrOpenStyle || 'tab';
-        const fetchrrUrl = `https://fetchrr.io/?link=${encodeURIComponent(megaUrl)}`;
+        GM_setValue('pendingMegaLink', megaUrl);
+        const fetchrrUrl = 'https://fetchrr.io/';
         if (style === 'self') {
             window.location.href = fetchrrUrl;
         } else if (style === 'popup') {
@@ -1622,7 +1625,62 @@
             window.open(fetchrrUrl, 'sfx_fetchrr',
                 `width=${w},height=${h},left=${left},top=${top},menubar=no,toolbar=no,location=yes,status=no`);
         } else {
-            window.open(fetchrrUrl, '_blank', 'noopener,noreferrer');
+            window.open(fetchrrUrl, '_blank');
+        }
+    }
+
+    // --- Fetchrr.io: auto-fill mega link on page load ---
+    function handleFetchrrPage() {
+        const pending = GM_getValue('pendingMegaLink', '');
+        if (!pending) return;
+        // Clear immediately to avoid re-filling on refresh
+        GM_setValue('pendingMegaLink', '');
+
+        function fillAndParse() {
+            const input = document.getElementById('mega-link');
+            if (!input) return false;
+
+            // React controls this input — we must use the native setter to
+            // trigger React's synthetic onChange handler, then dispatch events.
+            const nativeSetter = Object.getOwnPropertyDescriptor(
+                window.HTMLInputElement.prototype, 'value'
+            ).set;
+            nativeSetter.call(input, pending);
+
+            // Fire both 'input' and 'change' so React registers the new value
+            input.dispatchEvent(new Event('input',  { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+
+            // Give React a tick to re-render (enables the Parse button)
+            setTimeout(() => {
+                const btn = document.querySelector('button.cds--btn--primary:not([disabled])');
+                if (btn) {
+                    btn.click();
+                } else {
+                    // Button still disabled — try once more after another tick
+                    setTimeout(() => {
+                        const btn2 = document.querySelector('button.cds--btn--primary');
+                        if (btn2) btn2.click();
+                    }, 300);
+                }
+            }, 150);
+            return true;
+        }
+
+        // Try immediately if DOM is already ready, else wait for it
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                // React apps may still be mounting — poll briefly
+                let attempts = 0;
+                const t = setInterval(() => {
+                    if (fillAndParse() || ++attempts > 20) clearInterval(t);
+                }, 200);
+            });
+        } else {
+            let attempts = 0;
+            const t = setInterval(() => {
+                if (fillAndParse() || ++attempts > 20) clearInterval(t);
+            }, 200);
         }
     }
 
@@ -3785,6 +3843,15 @@ ${'showFdCircle' in config ? `
         if (window.location.hostname.includes('fileditchfiles.me')) {
             try { handleFileDitchPage(); } catch(e) {
                 console.error('Sinflix Modifier error on fileditchfiles.me:', e);
+            }
+            return;
+        }
+
+        if (window.location.hostname === 'fetchrr.io') {
+            try {
+                handleFetchrrPage();
+            } catch (e) {
+                console.error('Sinflix Modifier error on fetchrr.io:', e);
             }
             return;
         }
