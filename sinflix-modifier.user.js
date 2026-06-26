@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.26.03
+// @version      26.06.26.04
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links, copy-all-links per resolution, and Mega.nz bypass circles (click to instantly bypass & download, or copy all bypass links). On mega.nz file pages: floating bypass download button that skips Mega quota limits.
 // @license      MIT
 // @author       asurpbs
@@ -1260,6 +1260,53 @@
         #bh-copy-pill.bh-pill-cancelled .bh-pill-cancel {
             display: none;
         }
+        /* --- Server selection state --- */
+        #bh-copy-pill.bh-pill-server-select .bh-pill-sep,
+        #bh-copy-pill.bh-pill-server-select .bh-pill-progress-wrap,
+        #bh-copy-pill.bh-pill-server-select .bh-pill-count,
+        #bh-copy-pill.bh-pill-server-select .bh-pill-cancel {
+            display: none;
+        }
+        #bh-copy-pill .bh-pill-srv {
+            display: none;
+            gap: 7px;
+            align-items: center;
+            margin-left: 2px;
+        }
+        #bh-copy-pill.bh-pill-server-select .bh-pill-srv { display: flex; }
+        #bh-copy-pill .bh-pill-srv-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 13px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.14);
+            background: rgba(255,255,255,0.07);
+            color: rgba(255,255,255,0.85);
+            font-size: 12px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.17s ease, border-color 0.17s ease, transform 0.13s ease;
+        }
+        #bh-copy-pill .bh-pill-srv-btn:hover {
+            background: rgba(255,255,255,0.13);
+            border-color: rgba(255,255,255,0.28);
+            transform: scale(1.06);
+        }
+        #bh-copy-pill .bh-pill-srv-btn:active { transform: scale(0.96); }
+        #bh-copy-pill .bh-pill-srv-btn[data-srv="0"]:hover {
+            border-color: rgba(107,165,245,0.7);
+            background: rgba(107,165,245,0.12);
+        }
+        #bh-copy-pill .bh-pill-srv-btn[data-srv="1"]:hover {
+            border-color: rgba(93,186,114,0.7);
+            background: rgba(93,186,114,0.12);
+        }
+        .bh-srv-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+        .bh-srv-dot-0 { background: #6ba5f5; }
+        .bh-srv-dot-1 { background: #5dba72; }
     `);
 
     // --- Enhanced Drama Detection Patterns ---
@@ -2013,19 +2060,23 @@
                     });
                 }
             });
-            // --- BuzzHeavier Copy-All Progress Pill ---
-    // A dynamic island–style pill that shows live progress when bulk-copying links.
+        });
+    }
+
+    // --- BuzzHeavier Copy-All Progress Pill ---
+    // A dynamic island-style pill: server picker → live progress → success/error, with cancel.
     const buzzPill = (() => {
-        const SVG_SPIN   = `<svg viewBox="0 0 24 24"><path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z" fill="currentColor"/></svg>`;
-        const SVG_CHECK  = `<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>`;
-        const SVG_CROSS  = `<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/></svg>`;
-        const SVG_CANCEL = `<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/></svg>`;
-        const SVG_STOP   = `<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor"/></svg>`;
+        const SVG_SPIN     = `<svg viewBox="0 0 24 24"><path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z" fill="currentColor"/></svg>`;
+        const SVG_CHECK    = `<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>`;
+        const SVG_CROSS    = `<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/></svg>`;
+        const SVG_STOP     = `<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor"/></svg>`;
+        const SVG_COPY_ICO = `<svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" fill="currentColor"/></svg>`;
 
         let pill         = null;
         let dismissTimer = null;
         let cancelled    = false;
-        let cancelCb     = null;   // callback set by copyLinks
+        let cancelCb     = null;
+        let _selectCb    = null;
 
         function getOrCreate() {
             if (pill && document.body.contains(pill)) return pill;
@@ -2034,20 +2085,32 @@
             pill.innerHTML = `
                 <div class="bh-pill-icon" id="bh-pill-icon"></div>
                 <span class="bh-pill-label" id="bh-pill-label"></span>
-                <div class="bh-pill-sep"></div>
-                <div class="bh-pill-progress-wrap">
-                    <div class="bh-pill-bar" id="bh-pill-bar"></div>
+                <div class="bh-pill-srv" id="bh-pill-srv">
+                    <button class="bh-pill-srv-btn" data-srv="0"><span class="bh-srv-dot bh-srv-dot-0"></span>Server 1</button>
+                    <button class="bh-pill-srv-btn" data-srv="1"><span class="bh-srv-dot bh-srv-dot-1"></span>Server 2</button>
                 </div>
+                <div class="bh-pill-sep"></div>
+                <div class="bh-pill-progress-wrap"><div class="bh-pill-bar" id="bh-pill-bar"></div></div>
                 <span class="bh-pill-count" id="bh-pill-count"></span>
-                <button class="bh-pill-cancel" id="bh-pill-cancel" title="Cancel copy">${SVG_STOP}</button>
+                <button class="bh-pill-cancel" id="bh-pill-cancel" title="Cancel">${SVG_STOP}</button>
             `;
-            // Wire up cancel button
+            pill.querySelectorAll('.bh-pill-srv-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const idx = parseInt(btn.dataset.srv, 10);
+                    pill.classList.remove('bh-pill-server-select');
+                    if (typeof _selectCb === 'function') {
+                        const cb = _selectCb;
+                        _selectCb = null;
+                        cb(idx);
+                    }
+                });
+            });
             pill.querySelector('#bh-pill-cancel').addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (cancelled) return;
                 cancelled = true;
                 if (typeof cancelCb === 'function') cancelCb();
-                // Morph to 'cancelled' state immediately
                 _setState('cancelled', 'Cancelled', 0, 0);
                 dismissTimer = setTimeout(hide, 2000);
             });
@@ -2055,17 +2118,14 @@
             return pill;
         }
 
-        // Internal helper — set visual state without resetting cancelled flag
         function _setState(state, label, done, total) {
             const p   = getOrCreate();
             const ico = p.querySelector('#bh-pill-icon');
             const lbl = p.querySelector('#bh-pill-label');
             const bar = p.querySelector('#bh-pill-bar');
             const cnt = p.querySelector('#bh-pill-count');
-
-            p.classList.remove('bh-pill-success', 'bh-pill-error', 'bh-pill-cancelled');
+            p.classList.remove('bh-pill-success', 'bh-pill-error', 'bh-pill-cancelled', 'bh-pill-server-select');
             ico.classList.remove('bh-pill-spinning');
-
             if (state === 'progress') {
                 ico.innerHTML = SVG_SPIN;
                 ico.classList.add('bh-pill-spinning');
@@ -2089,14 +2149,12 @@
                 p.classList.add('bh-pill-cancelled');
                 ico.innerHTML = SVG_CROSS;
                 lbl.textContent = label || 'Cancelled';
-                bar.style.width  = bar.style.width; // freeze at current position
-                cnt.textContent  = '';
+                cnt.textContent = '';
             }
             p.classList.add('bh-pill-visible');
         }
 
         function show(state, label, done, total) {
-            // Don't override state if already cancelled
             if (cancelled && state === 'progress') return;
             clearTimeout(dismissTimer);
             _setState(state, label, done, total);
@@ -2104,20 +2162,29 @@
             if (state === 'error')   dismissTimer = setTimeout(hide, 3500);
         }
 
+        function showServerSelect(onSelect) {
+            clearTimeout(dismissTimer);
+            cancelled = false;
+            _selectCb = onSelect;
+            const p   = getOrCreate();
+            const ico = p.querySelector('#bh-pill-icon');
+            const lbl = p.querySelector('#bh-pill-label');
+            p.classList.remove('bh-pill-success', 'bh-pill-error', 'bh-pill-cancelled');
+            ico.classList.remove('bh-pill-spinning');
+            ico.innerHTML   = SVG_COPY_ICO;
+            lbl.textContent = 'Copy from:';
+            p.classList.add('bh-pill-server-select', 'bh-pill-visible');
+        }
+
         function hide() {
             if (!pill) return;
             pill.classList.remove('bh-pill-visible');
         }
 
-        // Register the cancel callback; also resets cancelled flag for a fresh run
-        function onCancel(cb) {
-            cancelled = false;
-            cancelCb  = cb;
-        }
-
+        function onCancel(cb) { cancelled = false; cancelCb = cb; }
         function isCancelled() { return cancelled; }
 
-        return { show, hide, onCancel, isCancelled };
+        return { show, hide, showServerSelect, onCancel, isCancelled };
     })();
 
     function enhanceBuzzheavierContent() {
@@ -2250,63 +2317,62 @@
         const copyLinks = (linksArray, btnElement) => {
             if (!linksArray || linksArray.length === 0) return;
 
-            const total     = linksArray.length;
-            let processed   = 0;
-            let directLinks = [];
-
-            // Helper: restore the trigger button to its original state
-            const restoreBtn = () => {
-                if (!btnElement) return;
-                btnElement.disabled     = false;
-                btnElement.style.opacity = '';
-            };
-
-            // Register cancel handler FIRST — this also resets the cancelled flag
-            buzzPill.onCancel(() => {
-                restoreBtn();
-                if (btnElement) btnElement.innerText = origText;
-            });
-
-            // Show pill immediately in "fetching" state
-            buzzPill.show('progress', 'Fetching links…', 0, total);
-
-            // Disable button so it can't be double-clicked
             const origText = btnElement ? btnElement.innerText : '';
+
+            // Disable button immediately so it can't be double-clicked
             if (btnElement) {
                 btnElement.disabled      = true;
                 btnElement.style.opacity = '0.5';
             }
 
-            linksArray.forEach(pageUrl => {
-                fetchDirectLink(pageUrl, 0, (directUrl) => {
-                    // Silently drop results that arrive after cancellation
-                    if (buzzPill.isCancelled()) return;
+            const restoreBtn = () => {
+                if (!btnElement) return;
+                btnElement.disabled      = false;
+                btnElement.style.opacity = '';
+                btnElement.innerText     = origText;
+            };
 
-                    processed++;
-                    if (directUrl) directLinks.push(directUrl);
+            // Register cancel handler — also resets cancelled flag for a fresh run
+            buzzPill.onCancel(restoreBtn);
 
-                    // Update pill progress on every resolved link
-                    buzzPill.show('progress', 'Fetching links…', processed, total);
+            // Phase 1: show server picker in the pill
+            buzzPill.showServerSelect((serverIndex) => {
+                // Phase 2: user picked a server — start fetching
+                const total     = linksArray.length;
+                let processed   = 0;
+                let directLinks = [];
 
-                    if (processed === total) {
-                        restoreBtn();
+                buzzPill.show('progress', 'Fetching links…', 0, total);
 
-                        if (directLinks.length > 0) {
-                            navigator.clipboard.writeText(directLinks.join('\n')).then(() => {
-                                // Morph pill to success state
-                                buzzPill.show('success', 'Copied to clipboard!', directLinks.length, directLinks.length);
-                                if (btnElement) {
-                                    btnElement.innerText = '✓ Copied!';
-                                    setTimeout(() => { btnElement.innerText = origText; }, 2200);
-                                }
-                            }).catch(() => {
-                                buzzPill.show('error', 'Clipboard write failed', 0, 0);
-                            });
-                        } else {
-                            buzzPill.show('error', 'No direct links found', 0, 0);
-                            if (btnElement) btnElement.innerText = origText;
+                linksArray.forEach(pageUrl => {
+                    fetchDirectLink(pageUrl, serverIndex, (directUrl) => {
+                        // Drop results that arrive after cancellation
+                        if (buzzPill.isCancelled()) return;
+
+                        processed++;
+                        if (directUrl) directLinks.push(directUrl);
+
+                        buzzPill.show('progress', 'Fetching links…', processed, total);
+
+                        if (processed === total) {
+                            restoreBtn();
+
+                            if (directLinks.length > 0) {
+                                navigator.clipboard.writeText(directLinks.join('\n')).then(() => {
+                                    const srvLabel = serverIndex === 0 ? 'Server 1' : 'Server 2';
+                                    buzzPill.show('success', `${srvLabel} — copied!`, directLinks.length, directLinks.length);
+                                    if (btnElement) {
+                                        btnElement.innerText = '✓ Copied!';
+                                        setTimeout(() => { btnElement.innerText = origText; }, 2200);
+                                    }
+                                }).catch(() => {
+                                    buzzPill.show('error', 'Clipboard write failed', 0, 0);
+                                });
+                            } else {
+                                buzzPill.show('error', 'No direct links found', 0, 0);
+                            }
                         }
-                    }
+                    });
                 });
             });
         };
