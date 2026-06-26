@@ -1,15 +1,15 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.26.04
-// @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links, copy-all-links per resolution, and Mega.nz bypass circles (click to instantly bypass & download, or copy all bypass links). On mega.nz file pages: floating bypass download button that skips Mega quota limits.
+// @version      26.06.26.05
+// @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled so you can get a direct, unthrottled download mirror.
 // @license      MIT
 // @author       asurpbs
 // @match        https://rentry.co/sin-flix
 // @match        https://text.is/Sinflix
 // @match        https://pst.moe/paste/*
 // @match        https://buzzheavier.com/*
-// @match        https://mega.nz/file/*
+// @match        https://mega.nz/*
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_addStyle
@@ -48,10 +48,9 @@
         buzzSplitQuality: GM_getValue('buzzSplitQuality', false),
         buzzDirectDownload: GM_getValue('buzzDirectDownload', false),
         buzzCopyLinks: GM_getValue('buzzCopyLinks', false),
-        // NEW: Mega.nz bypass
-        megaBypass: GM_getValue('megaBypass', true),
-        // NEW: Mega.nz floating download button
-        megaNzButton: GM_getValue('megaNzButton', true),
+        // Mega.nz → Fetchrr.io pill
+        megaFetchrr: GM_getValue('megaFetchrr', true),
+        megaFetchrrOpenStyle: GM_getValue('megaFetchrrOpenStyle', 'tab'),
         // NEW: Top search bar with Dynamic Island animation
         showTopSearchBar: GM_getValue('showTopSearchBar', true)
     };
@@ -181,46 +180,24 @@
             color: white;
         }
 
-        /* --- Mega Bypass Circle --- */
-        .sinflix-mega-circle {
+        /* --- Mega Fetchrr Dot --- */
+        .sinflix-mega-fetchrr-dot {
             display: inline-block;
             width: 13px;
             height: 13px;
             border-radius: 50%;
-            background: #9aa0a6;
+            background: #00c261;
             cursor: pointer;
             vertical-align: middle;
             margin-left: 5px;
-            opacity: 0.5;
-            transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+            opacity: 0.55;
+            transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
             flex-shrink: 0;
         }
-        .sinflix-mega-circle:hover {
+        .sinflix-mega-fetchrr-dot:hover {
             opacity: 1;
-            transform: scale(1.25);
-            background: #34a853;
-        }
-        .sinflix-mega-bypass-header {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            margin: 6px 0;
-        }
-        .sinflix-copy-bypass-btn {
-            background: #2a2b2c;
-            color: #e8eaed;
-            border: 1px solid #9aa0a6;
-            padding: 4px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 11px;
-            font-family: inherit;
-            transition: all 0.2s;
-        }
-        .sinflix-copy-bypass-btn:hover {
-            background: #34a853;
-            border-color: #34a853;
-            color: white;
+            transform: scale(1.3);
+            box-shadow: 0 0 6px rgba(0, 194, 97, 0.7);
         }
 
         /* --- FileDitch download circle --- */
@@ -1631,24 +1608,22 @@
         }
     }
 
-    // --- Helper: convert a mega.nz URL to the bypass download URL ---
-    function getMegaBypassUrl(megaUrl) {
-        // Uses the wldbs workers API: base64-encode the URL, no extra fetch needed
-        return `https://mega.wldbs.workers.dev/download?url=${btoa(megaUrl)}`;
-    }
-
-
-    // --- Helper: trigger background download without full page navigation ---
-    function triggerDownload(url) {
-        const a = document.createElement('a');
-        a.href = url;
-        // Using download attribute with empty string hints the browser to save it
-        a.download = '';
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        // Small delay to ensure the browser processes the click before removal
-        setTimeout(() => document.body.removeChild(a), 100);
+    // --- Helper: open a mega.nz link in Fetchrr.io ---
+    // openStyle: 'tab' | 'popup' | 'self'
+    function openMegaInFetchrr(megaUrl, openStyle) {
+        const style = openStyle || config.megaFetchrrOpenStyle || 'tab';
+        const fetchrrUrl = `https://fetchrr.io/?link=${encodeURIComponent(megaUrl)}`;
+        if (style === 'self') {
+            window.location.href = fetchrrUrl;
+        } else if (style === 'popup') {
+            const w = 900, h = 700;
+            const left = Math.round((screen.width  - w) / 2);
+            const top  = Math.round((screen.height - h) / 2);
+            window.open(fetchrrUrl, 'sfx_fetchrr',
+                `width=${w},height=${h},left=${left},top=${top},menubar=no,toolbar=no,location=yes,status=no`);
+        } else {
+            window.open(fetchrrUrl, '_blank', 'noopener,noreferrer');
+        }
     }
 
     // --- pst.moe Enhancements ---
@@ -1727,15 +1702,6 @@
                         copyBtn.dataset.res = currentResolution;
                         copyBtn.textContent = 'Copy All Links';
                         resSpan.appendChild(copyBtn);
-
-                        if (config.megaBypass) {
-                            resSpan.appendChild(document.createTextNode(' '));
-                            const bypassBtn = document.createElement('button');
-                            bypassBtn.className = 'sinflix-copy-bypass-btn';
-                            bypassBtn.dataset.bypassRes = currentResolution;
-                            bypassBtn.textContent = 'Copy Bypass Links';
-                            resSpan.appendChild(bypassBtn);
-                        }
                     }
 
                     fragment.appendChild(resSpan);
@@ -1772,11 +1738,11 @@
                     anchor.textContent = rawUrl;
                     fragment.appendChild(anchor);
 
-                    // Append bypass circle for mega links
-                    if (config.megaBypass && cleanUrl.includes('mega.nz/file/')) {
+                    // Append Fetchrr pill trigger for mega links
+                    if (config.megaFetchrr && (cleanUrl.includes('mega.nz/file/') || cleanUrl.includes('mega.nz/folder/'))) {
                         const circle = document.createElement('span');
-                        circle.className = 'sinflix-mega-circle';
-                        circle.title = 'Bypass & download via mega.wldbs.workers.dev';
+                        circle.className = 'sinflix-mega-fetchrr-dot';
+                        circle.title = 'Open in Fetchrr.io — direct mirror download';
                         circle.dataset.megaUrl = cleanUrl;
                         fragment.appendChild(circle);
                     }
@@ -1851,39 +1817,15 @@
             });
         });
 
-        // --- Copy Bypass Links buttons ---
-        if (config.megaBypass) {
-            document.querySelectorAll('.sinflix-copy-bypass-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const res = e.target.getAttribute('data-bypass-res');
-                    const megaLinks = resolutionMegaLinksMap[res] || [];
-                    if (megaLinks.length === 0) {
-                        showNotification('No Mega.nz links found in this section.', 'error');
-                        return;
-                    }
-                    const bypassLinks = megaLinks.map(url => getMegaBypassUrl(url));
-                    const textToCopy = bypassLinks.join('\n');
-                    showNotification('Copying bypass links...', 'info');
-                    navigator.clipboard.writeText(textToCopy).then(() => {
-                        showNotification(`${bypassLinks.length} link(s) copied!`, 'success');
-                        const oldText = e.target.innerText;
-                        e.target.innerText = 'Copied!';
-                        setTimeout(() => { e.target.innerText = oldText; }, 2000);
-                    }).catch(() => {
-                        showNotification('Failed to copy links!', 'error');
-                    });
-                });
-            });
-
-            // --- Mega bypass: grey circle click → trigger bypass download ---
-            document.querySelectorAll('.sinflix-mega-circle').forEach(circle => {
-                circle.addEventListener('click', (e) => {
+        // --- Fetchrr dot click → open mega link in Fetchrr.io ---
+        if (config.megaFetchrr) {
+            document.querySelectorAll('.sinflix-mega-fetchrr-dot').forEach(dot => {
+                dot.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    const megaUrl = circle.getAttribute('data-mega-url');
+                    const megaUrl = dot.getAttribute('data-mega-url');
                     if (!megaUrl) return;
-                    const bypassUrl = getMegaBypassUrl(megaUrl);
-                    showNotification('Download started…', 'success', 2000);
-                    triggerDownload(bypassUrl);
+                    openMegaInFetchrr(megaUrl);
+                    showNotification('Opening Fetchrr.io…', 'info', 2000);
                 });
             });
         }
@@ -2975,11 +2917,11 @@
 
                         <div class="kdrama-toggle-item">
                             <div class="kdrama-toggle-info">
-                                <div class="kdrama-toggle-label">Mega.nz Link Bypass</div>
-                                <div class="kdrama-toggle-description">Add grey ● circle next to each Mega link to bypass & download instantly. Also adds "Copy Links" per section.</div>
+                                <div class="kdrama-toggle-label">Mega.nz → Fetchrr.io</div>
+                                <div class="kdrama-toggle-description">Show a ● dot next to each Mega link (on pst.moe) and a floating pill on mega.nz pages — click to mirror the link via Fetchrr.io for a direct, unthrottled download.</div>
                             </div>
                             <label class="kdrama-toggle-switch">
-                                <input type="checkbox" id="setting-mega-bypass" ${config.megaBypass ? 'checked' : ''}>
+                                <input type="checkbox" id="setting-mega-fetchrr" ${config.megaFetchrr ? 'checked' : ''}>
                                 <span class="kdrama-toggle-slider"></span>
                             </label>
                         </div>
@@ -3001,20 +2943,36 @@ ${'showFdCircle' in config ? `
                     <div class="kdrama-settings-section">
                         <h3 class="kdrama-section-title">
                             <svg class="section-icon" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
                             </svg>
                             Mega.nz
                         </h3>
 
-                        <div class="kdrama-toggle-item">
-                            <div class="kdrama-toggle-info">
-                                <div class="kdrama-toggle-label">Bypass Download Button</div>
-                                <div class="kdrama-toggle-description">Show a floating button on mega.nz file pages to download via bypass instantly</div>
+                        <div class="kdrama-radio-group">
+                            <div class="kdrama-radio-group-title">Fetchrr.io Mirror Opening Style</div>
+                            <div class="kdrama-radio-options">
+                                <div class="kdrama-radio-option">
+                                    <input type="radio" name="megaFetchrrStyle" value="tab" id="mega-fetchrr-tab" ${config.megaFetchrrOpenStyle === 'tab' ? 'checked' : ''}>
+                                    <label for="mega-fetchrr-tab" class="kdrama-radio-option-label">
+                                        <svg class="kdrama-radio-option-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.89-2-2-2zm0 14H5V8h14v10z"/></svg>
+                                        New Tab
+                                    </label>
+                                </div>
+                                <div class="kdrama-radio-option">
+                                    <input type="radio" name="megaFetchrrStyle" value="popup" id="mega-fetchrr-popup" ${config.megaFetchrrOpenStyle === 'popup' ? 'checked' : ''}>
+                                    <label for="mega-fetchrr-popup" class="kdrama-radio-option-label">
+                                        <svg class="kdrama-radio-option-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 7h-3V6a4 4 0 0 0-8 0v1H5a1 1 0 0 0-1 1v11a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8a1 1 0 0 0-1-1z"/></svg>
+                                        Popup Window
+                                    </label>
+                                </div>
+                                <div class="kdrama-radio-option">
+                                    <input type="radio" name="megaFetchrrStyle" value="self" id="mega-fetchrr-self" ${config.megaFetchrrOpenStyle === 'self' ? 'checked' : ''}>
+                                    <label for="mega-fetchrr-self" class="kdrama-radio-option-label">
+                                        <svg class="kdrama-radio-option-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+                                        Same Window
+                                    </label>
+                                </div>
                             </div>
-                            <label class="kdrama-toggle-switch">
-                                <input type="checkbox" id="setting-mega-nz-btn" ${config.megaNzButton ? 'checked' : ''}>
-                                <span class="kdrama-toggle-slider"></span>
-                            </label>
                         </div>
                     </div>
 
@@ -3217,8 +3175,9 @@ ${'showFdCircle' in config ? `
             GM_setValue('moveCurrentlyAiringToTop', document.getElementById('setting-move-airing').checked);
             GM_setValue('showChatBoxButton', document.getElementById('setting-chat-box').checked);
             GM_setValue('pstMoeEnhancements', document.getElementById('setting-pstmoe').checked);
-            GM_setValue('megaBypass', document.getElementById('setting-mega-bypass').checked);
-            GM_setValue('megaNzButton', document.getElementById('setting-mega-nz-btn').checked);
+            GM_setValue('megaFetchrr', document.getElementById('setting-mega-fetchrr').checked);
+            const megaFetchrrStyleEl = document.querySelector('input[name="megaFetchrrStyle"]:checked');
+            if (megaFetchrrStyleEl) GM_setValue('megaFetchrrOpenStyle', megaFetchrrStyleEl.value);
             const fdEl = document.getElementById('setting-fd-resolve');
             if (fdEl) GM_setValue('showFdCircle', fdEl.checked);
 
@@ -3684,94 +3643,129 @@ ${'showFdCircle' in config ? `
         }
     }
 
-    // --- Mega.nz Floating Bypass Button ---
-    function enhanceMegaNzPage() {
-        if (!config.megaNzButton) return;
+    // --- Mega.nz → Fetchrr.io Pill ---
+    function showMegaFetchrrPill() {
+        if (!config.megaFetchrr) return;
         if (!window.location.hostname.includes('mega.nz')) return;
-        // Only act on file pages
-        if (!window.location.href.includes('/file/')) return;
+        // Act on both /file/ and /folder/ pages
+        const isMegaPage = window.location.href.includes('/file/') || window.location.href.includes('/folder/');
+        if (!isMegaPage) return;
 
         GM_addStyle(`
-            #sinflix-mega-bypass-btn {
+            #sfx-fetchrr-pill {
                 position: fixed;
                 bottom: 28px;
                 left: 50%;
-                transform: translateX(-50%) translateZ(0);
+                transform: translateX(-50%) scale(0.85) translateZ(0);
                 z-index: 99999;
                 display: inline-flex;
                 align-items: center;
                 gap: 10px;
-                padding: 0 24px;
-                height: 48px;
-                border-radius: 24px;
-                border: 1px solid rgba(217, 39, 46, 0.45);
-                background: rgba(28, 28, 28, 0.92);
-                backdrop-filter: blur(14px);
-                -webkit-backdrop-filter: blur(14px);
-                color: #ffffff;
+                padding: 0 22px;
+                height: 50px;
+                border-radius: 25px;
+                border: 1px solid rgba(0, 178, 89, 0.5);
+                background: rgba(18, 18, 18, 0.94);
+                backdrop-filter: blur(20px) saturate(1.6);
+                -webkit-backdrop-filter: blur(20px) saturate(1.6);
+                color: #e8e8e8;
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 font-size: 14px;
                 font-weight: 600;
-                letter-spacing: 0.2px;
+                letter-spacing: 0.15px;
                 cursor: pointer;
                 white-space: nowrap;
-                box-shadow: 0 4px 24px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06);
-                transition: background 0.2s ease, border-color 0.2s ease,
-                            box-shadow 0.2s ease, transform 0.15s ease;
+                box-shadow: 0 6px 32px rgba(0,0,0,0.6),
+                            0 0 0 1px rgba(255,255,255,0.04) inset,
+                            0 1px 0 rgba(255,255,255,0.08) inset;
+                transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
+                            border-color 0.2s ease,
+                            box-shadow 0.2s ease,
+                            background 0.2s ease;
                 user-select: none;
                 will-change: transform;
+                opacity: 0;
+                pointer-events: none;
             }
-            #sinflix-mega-bypass-btn:hover {
-                background: rgba(217, 39, 46, 0.88);
-                border-color: rgba(217, 39, 46, 0.9);
-                box-shadow: 0 6px 28px rgba(217,39,46,0.35), 0 2px 8px rgba(0,0,0,0.4);
-                transform: translateX(-50%) translateY(-2px) translateZ(0);
+            #sfx-fetchrr-pill.sfx-pill-visible {
+                opacity: 1;
+                pointer-events: auto;
+                transform: translateX(-50%) scale(1) translateZ(0);
             }
-            #sinflix-mega-bypass-btn:active {
-                transform: translateX(-50%) translateY(0px) translateZ(0);
-                box-shadow: 0 2px 12px rgba(217,39,46,0.25);
+            #sfx-fetchrr-pill:hover {
+                border-color: rgba(0, 210, 100, 0.85);
+                background: rgba(0, 40, 20, 0.92);
+                box-shadow: 0 8px 36px rgba(0,180,80,0.28), 0 2px 8px rgba(0,0,0,0.5);
+                transform: translateX(-50%) scale(1.03) translateY(-2px) translateZ(0);
             }
-            #sinflix-mega-bypass-btn .sfx-mega-icon {
-                width: 18px;
-                height: 18px;
-                opacity: 0.9;
+            #sfx-fetchrr-pill:active {
+                transform: translateX(-50%) scale(0.97) translateY(0px) translateZ(0);
+            }
+            #sfx-fetchrr-pill .sfx-pill-logo {
+                width: 22px;
+                height: 22px;
+                border-radius: 6px;
+                background: linear-gradient(135deg, #00c261 0%, #007a40 100%);
+                display: flex;
+                align-items: center;
+                justify-content: center;
                 flex-shrink: 0;
+                box-shadow: 0 2px 6px rgba(0,180,80,0.4);
             }
-            #sinflix-mega-bypass-btn .sfx-mega-badge {
+            #sfx-fetchrr-pill .sfx-pill-logo svg {
+                width: 13px;
+                height: 13px;
+                fill: #fff;
+            }
+            #sfx-fetchrr-pill .sfx-pill-text {
+                display: flex;
+                flex-direction: column;
+                gap: 1px;
+                line-height: 1;
+            }
+            #sfx-fetchrr-pill .sfx-pill-label {
+                font-size: 13px;
+                font-weight: 600;
+                color: #fff;
+            }
+            #sfx-fetchrr-pill .sfx-pill-sub {
                 font-size: 10px;
-                font-weight: 700;
-                color: #d9272e;
-                background: rgba(217,39,46,0.15);
-                border: 1px solid rgba(217,39,46,0.35);
-                border-radius: 4px;
-                padding: 1px 5px;
-                letter-spacing: 0.5px;
-                text-transform: uppercase;
+                font-weight: 500;
+                color: rgba(255,255,255,0.45);
+                letter-spacing: 0.3px;
+            }
+            #sfx-fetchrr-pill .sfx-pill-arrow {
+                margin-left: 2px;
+                opacity: 0.5;
+                font-size: 16px;
             }
         `);
 
-        const btn = document.createElement('button');
-        btn.id = 'sinflix-mega-bypass-btn';
-        btn.title = 'Download via bypass — skips Mega quota limits';
-        btn.innerHTML = `
-            <svg class="sfx-mega-icon" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/>
-                <line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-            <span>Download</span>
-            <span class="sfx-mega-badge">Bypass</span>`;
+        const pill = document.createElement('button');
+        pill.id = 'sfx-fetchrr-pill';
+        pill.title = 'Mirror this MEGA link via Fetchrr.io — unlimited direct download';
+        pill.innerHTML = `
+            <div class="sfx-pill-logo">
+                <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+            </div>
+            <div class="sfx-pill-text">
+                <span class="sfx-pill-label">Mirror on Fetchrr</span>
+                <span class="sfx-pill-sub">Direct · Unthrottled</span>
+            </div>
+            <span class="sfx-pill-arrow">›</span>
+        `;
 
-        // Wait for body to be ready then append
-        const appendBtn = () => document.body && document.body.appendChild(btn);
-        if (document.body) appendBtn();
-        else document.addEventListener('DOMContentLoaded', appendBtn);
+        const appendPill = () => {
+            if (!document.body || document.getElementById('sfx-fetchrr-pill')) return;
+            document.body.appendChild(pill);
+            // Animate in after a short delay so the transition fires
+            requestAnimationFrame(() => requestAnimationFrame(() => pill.classList.add('sfx-pill-visible')));
+        };
+        if (document.body) appendPill();
+        else document.addEventListener('DOMContentLoaded', appendPill);
 
-        btn.addEventListener('click', () => {
-            const bypassUrl = getMegaBypassUrl(window.location.href);
-            showNotification('Download started…', 'success', 2500);
-            triggerDownload(bypassUrl);
+        pill.addEventListener('click', () => {
+            openMegaInFetchrr(window.location.href);
         });
     }
 
@@ -3797,9 +3791,9 @@ ${'showFdCircle' in config ? `
 
         if (window.location.hostname.includes('mega.nz')) {
             try {
-                enhanceMegaNzPage();
+                showMegaFetchrrPill();
             } catch (e) {
-                console.error('Sinflix Modifier error during mega.nz enhancement:', e);
+                console.error('Sinflix Modifier error during mega.nz pill:', e);
             }
             // No settings gear on mega.nz — keep the page clean
             return;
