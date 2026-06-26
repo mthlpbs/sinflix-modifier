@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.26.06
+// @version      26.06.27.07
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
@@ -2210,20 +2210,47 @@
             }
         }
 
+        // File-link helpers — exclude obvious nav/header anchors by requiring a path
+        // that looks like a file ID (not just '/', '/pricing', etc.).
+        const FILE_LINK_RE = /^\/[a-zA-Z0-9_-]{4,}(\?|$)/;
+        const isFileAnchor = (a) => {
+            if (!a || !a.href) return false;
+            const path = a.getAttribute('href') || '';
+            // Absolute buzzheavier or localhost URLs are always file links
+            if (a.href.includes('buzzheavier.com/') && path.length > 1) return true;
+            if (a.href.includes('localhost:')) return true;
+            // Root-relative path must match the file-ID pattern
+            return path.startsWith('/') && FILE_LINK_RE.test(path) && !path.startsWith('//');
+        };
+
         const getFileLink = (parent) => {
-            return parent.querySelector('a[href^="/"]') 
-                || parent.querySelector('a[href*="buzzheavier.com/"]') 
-                || parent.querySelector('a[href*="localhost:"]');
+            const anchors = parent.querySelectorAll('a[href]');
+            for (const a of anchors) if (isFileAnchor(a)) return a;
+            return null;
         };
 
         const getFileLinks = (parent) => {
-            const list = Array.from(parent.querySelectorAll('a[href^="/"], a[href*="buzzheavier.com/"], a[href*="localhost:"]'));
-            return [...new Set(list)];
+            return [...new Set(
+                Array.from(parent.querySelectorAll('a[href]')).filter(isFileAnchor)
+            )];
         };
 
-        const isHomePage = window.location.pathname.length > 1 && !window.location.pathname.endsWith('/download') && (document.querySelector('#tbody') || document.querySelector('[id^="tbody-"]'));
-        // Use a broad selector so class-name changes on BuzzHeavier don't break detection
-        const isSinglePage = !!document.querySelector('a[hx-get*="/download"]');
+        // Find the main file-list tbody: prefer #tbody, fall back to any tbody that
+        // contains at least one row with a file anchor.
+        const mainTbody = document.querySelector('#tbody')
+            || (() => {
+                for (const tb of document.querySelectorAll('table tbody')) {
+                    if (tb.querySelector('tr') && getFileLink(tb.querySelector('tr'))) return tb;
+                }
+                return null;
+            })();
+
+        const isHomePage = mainTbody !== null
+            && window.location.pathname.length > 1
+            && !window.location.pathname.endsWith('/download');
+
+        // Single-file page: has an HTMX download endpoint but no multi-row table
+        const isSinglePage = !isHomePage && !!document.querySelector('a[hx-get*="/download"]');
 
         const handleAction = (type, pageUrl, btnElement, serverIndex) => {
             if (btnElement.classList.contains('bh-loading')) return;
@@ -2388,7 +2415,8 @@
                 const fileUrl = linkEl.href;
                 
                 if (config.buzzSplitQuality) {
-                    const name = linkEl.innerText.toLowerCase();
+                    // textContent is more reliable than innerText in Firefox
+                    const name = (linkEl.textContent || linkEl.innerText || '').toLowerCase();
                     let quality = 'Other';
                     for (const q of ['1080p', '720p', '540p', '480p']) {
                         if (name.includes(q)) {
@@ -2399,8 +2427,7 @@
 
                     let targetTbody = document.getElementById(`tbody-${quality}`);
                     if (!targetTbody) {
-                        const originalTbody = document.querySelector('#tbody');
-                        const parentTable = originalTbody ? originalTbody.closest('table') : document.querySelector('table');
+                        const parentTable = mainTbody ? mainTbody.closest('table') : document.querySelector('table');
                         const container = parentTable.parentNode;
                         const headerRow = parentTable.querySelector('thead').outerHTML;
                         const tableClass = parentTable.className;
@@ -2444,26 +2471,27 @@
         };
 
         if (isHomePage) {
-            const originalTbody = document.querySelector('#tbody');
-            if (originalTbody) {
-                const parentTable = originalTbody.closest('table');
+            if (mainTbody) {
+                const parentTable = mainTbody.closest('table');
                 if (parentTable && config.buzzSplitQuality) {
                     parentTable.style.display = 'none';
                 }
             }
 
-            // Dynamically select and process all unprocessed tr.editable rows in the page
-            const rows = Array.from(document.querySelectorAll('tr.editable:not(.sfx-processed)'));
+            // Select ALL rows inside the detected tbody — no class dependency
+            const rows = Array.from(
+                (mainTbody || document).querySelectorAll('tr:not(.sfx-processed)')
+            ).filter(row => getFileLink(row) !== null);
             processRows(rows);
 
-            if (!config.buzzSplitQuality && originalTbody && config.buzzCopyLinks) {
-                const parentTable = originalTbody.closest('table');
+            if (!config.buzzSplitQuality && mainTbody && config.buzzCopyLinks) {
+                const parentTable = mainTbody.closest('table');
                 if (parentTable && !parentTable.parentNode.querySelector('.sinflix-copy-all-btn')) {
                     const copyBtn = document.createElement('button');
                     copyBtn.className = 'sinflix-copy-all-btn sinflix-copy-btn btn btn-sm bg-blue-600 text-white px-3 py-1 rounded my-2';
                     copyBtn.innerText = 'Copy All Links';
                     copyBtn.onclick = function() {
-                        const links = getFileLinks(originalTbody).map(a => a.href);
+                        const links = getFileLinks(mainTbody).map(a => a.href);
                         copyLinks(links, this);
                     };
                     parentTable.parentNode.insertBefore(copyBtn, parentTable);
