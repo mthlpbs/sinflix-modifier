@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.27.10
+// @version      26.06.27.11
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
@@ -55,6 +55,22 @@
         // NEW: Top search bar with Dynamic Island animation
         showTopSearchBar: GM_getValue('showTopSearchBar', true)
     };
+
+    // --- One-time migration: reset stale BuzzHeavier settings stored as false
+    // from an older version where these defaulted to false. Runs once per browser.
+    const BUZZ_SETTINGS_VERSION = '2'; // bump this whenever defaults change
+    if (GM_getValue('buzzSettingsVersion', '') !== BUZZ_SETTINGS_VERSION) {
+        GM_setValue('buzzheavierEnhancements', true);
+        GM_setValue('buzzSplitQuality', true);
+        GM_setValue('buzzDirectDownload', true);
+        GM_setValue('buzzCopyLinks', true);
+        GM_setValue('buzzSettingsVersion', BUZZ_SETTINGS_VERSION);
+        // Update live config so this page benefits immediately
+        config.buzzheavierEnhancements = true;
+        config.buzzSplitQuality = true;
+        config.buzzDirectDownload = true;
+        config.buzzCopyLinks = true;
+    }
 
     // --- Style Definitions ---
     GM_addStyle(`
@@ -2437,6 +2453,17 @@
                 const linkEl = getFileLink(row);
                 if (!linkEl) return;
 
+                // BuzzHeavier often uses TWO <tr> per file entry:
+                //   • Row A: filename link (this row)
+                //   • Row B: size / views / date metadata (next sibling, no file link)
+                // We must carry Row B with Row A whenever we move rows (quality split).
+                const nextSib = row.nextElementSibling;
+                const dataRow = (nextSib
+                    && nextSib.tagName === 'TR'
+                    && !nextSib.classList.contains('sfx-processed')
+                    && !getFileLink(nextSib)) ? nextSib : null;
+                if (dataRow) dataRow.classList.add('sfx-processed');
+
                 const fileUrl = linkEl.href;
                 
                 if (config.buzzSplitQuality) {
@@ -2494,6 +2521,8 @@
                     }
 
                     targetTbody.appendChild(row);
+                    // Move the companion data row (size/views/date) right after the name row
+                    if (dataRow) targetTbody.appendChild(dataRow);
                 }
 
                 addCapsulesToRow(row);
