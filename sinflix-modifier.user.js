@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.27.19
+// @version      26.06.27.20
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
@@ -2269,9 +2269,11 @@
             || document.querySelector('table tbody[data-sfx-main]');
 
         if (!mainTbody) {
-            // Look for #tbody first (fast path)
+            // Look for #tbody first — accept it even if empty/no file-link rows
+            // yet. Firefox + HTMX populates rows asynchronously; the
+            // MutationObserver will re-fire once rows appear.
             const byId = document.querySelector('#tbody');
-            if (byId && getFileLink(byId.querySelector('tr'))) {
+            if (byId) {
                 mainTbody = byId;
             } else {
                 // Scan every tbody, skip ones we injected (id starts with 'tbody-')
