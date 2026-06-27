@@ -1,16 +1,14 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.27.20
-// @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
+// @version      26.06.27.21
+// @description  Enhances SinFlix pages with Google & MyDramaList search icons, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
 // @match        https://rentry.co/sin-flix
 // @match        https://text.is/Sinflix
 // @match        https://pst.moe/paste/*
 // @match        https://*.pst.moe/paste/*
-// @match        https://buzzheavier.com/*
-// @match        https://*.buzzheavier.com/*
 // @match        https://mega.nz/*
 // @match        https://*.mega.nz/*
 // @match        https://fetchrr.io/*
@@ -33,147 +31,31 @@
     const config = {
         showGoogleCircle: GM_getValue('showGoogleCircle', true),
         showMdlCircle: GM_getValue('showMdlCircle', true),
-        convertBuzzheavierLinks: GM_getValue('convertBuzzheavierLinks', true),
         showBackToTopButton: GM_getValue('showBackToTopButton', true),
-        // NEW: Add setting for link opening style, defaulting to 'popup'
+        // Add setting for link opening style, defaulting to 'popup'
         linkOpenStyle: GM_getValue('linkOpenStyle', 'popup'),
-        // NEW: Add setting for moving Currently Airing to top
+        // Add setting for moving Currently Airing to top
         moveCurrentlyAiringToTop: GM_getValue('moveCurrentlyAiringToTop', false),
-        // NEW: Add setting for SinFlix chat box button
+        // Add setting for SinFlix chat box button
         showChatBoxButton: GM_getValue('showChatBoxButton', true),
-        // NEW: Add setting for chat box opening style, defaulting to 'tab'
+        // Add setting for chat box opening style, defaulting to 'tab'
         chatBoxOpenStyle: GM_getValue('chatBoxOpenStyle', 'popup'),
-        // NEW: Add setting for download link opening style, defaulting to 'tab'
+        // Add setting for download link opening style, defaulting to 'tab'
         downloadLinkOpenStyle: GM_getValue('downloadLinkOpenStyle', 'tab'),
-        // NEW: pst.moe enhancements
+        // pst.moe enhancements
         pstMoeEnhancements: GM_getValue('pstMoeEnhancements', true),
-        // NEW: Google search keyword suffix
+        // Google search keyword suffix
         googleSearchSuffix: GM_getValue('googleSearchSuffix', 'TV Series'),
-        // NEW: Buzzheavier enhancements
-        buzzheavierEnhancements: GM_getValue('buzzheavierEnhancements', true),
-        buzzSplitQuality: GM_getValue('buzzSplitQuality', true),
-        buzzDirectDownload: GM_getValue('buzzDirectDownload', true),
-        buzzCopyLinks: GM_getValue('buzzCopyLinks', true),
         // Mega.nz → Fetchrr.io pill
         megaFetchrr: GM_getValue('megaFetchrr', true),
         megaFetchrrOpenStyle: GM_getValue('megaFetchrrOpenStyle', 'tab'),
-        // NEW: Top search bar with Dynamic Island animation
+        // Top search bar with Dynamic Island animation
         showTopSearchBar: GM_getValue('showTopSearchBar', true)
     };
 
-    // --- One-time migration: reset stale BuzzHeavier settings stored as false
-    // from an older version where these defaulted to false. Runs once per browser.
-    const BUZZ_SETTINGS_VERSION = '3'; // bump this whenever defaults change
-    if (GM_getValue('buzzSettingsVersion', '') !== BUZZ_SETTINGS_VERSION) {
-        GM_setValue('buzzheavierEnhancements', true);
-        GM_setValue('buzzSplitQuality', true);
-        GM_setValue('buzzDirectDownload', true);
-        GM_setValue('buzzCopyLinks', true);
-        GM_setValue('buzzSettingsVersion', BUZZ_SETTINGS_VERSION);
-        // Update live config so this page benefits immediately
-        config.buzzheavierEnhancements = true;
-        config.buzzSplitQuality = true;
-        config.buzzDirectDownload = true;
-        config.buzzCopyLinks = true;
-    }
-
     // --- Style Definitions ---
     GM_addStyle(`
-        /* --- Buzzheavier Server Capsules --- */
-        @keyframes bh-spin {
-            to { transform: rotate(360deg); }
-        }
-        .bh-capsule-wrap {
-            position: absolute;
-            right: 6px;
-            top: 50%;
-            transform: translateY(-50%);
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            flex-shrink: 0;
-            z-index: 5;
-        }
-        .bh-capsule {
-            display: inline-flex;
-            align-items: center;
-            gap: 0;
-            border-radius: 6px;
-            overflow: hidden;
-            flex-shrink: 0;
-            height: 20px;
-        }
-        .bh-capsule-s1 {
-            border: 1px solid rgba(66, 133, 244, 0.45);
-            background: rgba(66, 133, 244, 0.05);
-        }
-        .bh-capsule-s2 {
-            border: 1px solid rgba(52, 168, 83, 0.45);
-            background: rgba(52, 168, 83, 0.05);
-        }
-        /* --- Buzzheavier Legend --- */
-        .bh-legend-fixed {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            display: inline-flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 12px;
-            font-weight: normal;
-            color: #9aa0a6;
-            user-select: none;
-            z-index: 1000;
-        }
-        @media (max-width: 640px) {
-            .bh-legend-fixed {
-                position: relative;
-                top: 0;
-                right: 0;
-                margin: 10px auto;
-                justify-content: center;
-                width: fit-content;
-            }
-        }
-        .bh-cap-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 24px;
-            height: 20px;
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            padding: 0;
-            color: rgba(200, 200, 200, 0.7);
-            transition: background 0.15s ease, color 0.15s ease;
-            flex-shrink: 0;
-        }
-        .bh-cap-btn + .bh-cap-btn {
-            border-left: 1px solid rgba(255,255,255,0.08);
-        }
-        .bh-cap-btn svg {
-            width: 11px;
-            height: 11px;
-            fill: currentColor;
-            display: block;
-            flex-shrink: 0;
-        }
-        .bh-capsule-s1 .bh-cap-btn:hover {
-            background: rgba(66, 133, 244, 0.25);
-            color: #7eb8ff;
-        }
-        .bh-capsule-s2 .bh-cap-btn:hover {
-            background: rgba(52, 168, 83, 0.25);
-            color: #6dd98a;
-        }
-        .bh-cap-btn.bh-loading svg {
-            animation: bh-spin 0.7s linear infinite;
-            opacity: 0.6;
-        }
-        .bh-cap-btn.bh-copied {
-            color: #4ade80 !important;
-        }
+
 
         /* --- pst.moe Enhancements --- */
         .sinflix-res-header {
@@ -1108,203 +990,6 @@
             color: #e0aeb4;
         }
 
-        /* --- BuzzHeavier Copy Progress Pill --- */
-        #bh-copy-pill {
-            position: fixed;
-            top: 14px;
-            left: 50%;
-            z-index: 10010;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 0 16px 0 20px;
-            height: 44px;
-            border-radius: 22px;
-            background: rgba(16, 16, 20, 0.92);
-            backdrop-filter: blur(22px) saturate(180%);
-            -webkit-backdrop-filter: blur(22px) saturate(180%);
-            border: 1px solid rgba(255,255,255,0.11);
-            box-shadow: 0 6px 36px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,0,0,0.3);
-            color: #e8eaed;
-            font-family: "Segoe UI", system-ui, sans-serif;
-            font-size: 13px;
-            white-space: nowrap;
-            will-change: transform, opacity;
-            pointer-events: none;
-            opacity: 0;
-            transform: translateX(-50%) translateY(-72px) translateZ(0);
-            transition:
-                opacity 0.3s ease,
-                transform 0.5s cubic-bezier(0.34, 1.38, 0.64, 1),
-                border-color 0.35s ease,
-                box-shadow 0.35s ease;
-        }
-        /* Enable interactions only while the pill is visible */
-        #bh-copy-pill.bh-pill-visible {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0px) translateZ(0);
-            pointer-events: auto;
-        }
-        #bh-copy-pill.bh-pill-success {
-            border-color: rgba(52, 168, 83, 0.55);
-            box-shadow: 0 6px 32px rgba(52,168,83,0.28), 0 0 0 1px rgba(0,0,0,0.25);
-        }
-        #bh-copy-pill.bh-pill-error {
-            border-color: rgba(234, 67, 53, 0.55);
-            box-shadow: 0 6px 32px rgba(234,67,53,0.28), 0 0 0 1px rgba(0,0,0,0.25);
-        }
-        #bh-copy-pill .bh-pill-icon {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 18px;
-            height: 18px;
-            flex-shrink: 0;
-            color: rgba(255,255,255,0.65);
-            transition: color 0.3s ease;
-        }
-        #bh-copy-pill .bh-pill-icon svg {
-            width: 15px;
-            height: 15px;
-            display: block;
-        }
-        #bh-copy-pill .bh-pill-icon.bh-pill-spinning svg {
-            animation: bh-spin 0.7s linear infinite;
-        }
-        #bh-copy-pill.bh-pill-success .bh-pill-icon { color: #34a853; }
-        #bh-copy-pill.bh-pill-error   .bh-pill-icon { color: #ea4335; }
-        #bh-copy-pill .bh-pill-label {
-            font-size: 13px;
-            font-weight: 500;
-            color: rgba(255,255,255,0.88);
-            letter-spacing: 0.1px;
-            transition: color 0.3s ease;
-        }
-        #bh-copy-pill .bh-pill-sep {
-            width: 1px;
-            height: 14px;
-            background: rgba(255,255,255,0.1);
-            flex-shrink: 0;
-        }
-        #bh-copy-pill .bh-pill-progress-wrap {
-            width: 78px;
-            height: 3px;
-            background: rgba(255,255,255,0.08);
-            border-radius: 2px;
-            overflow: hidden;
-            flex-shrink: 0;
-        }
-        #bh-copy-pill .bh-pill-bar {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, #4285f4, #7c4dff);
-            border-radius: 2px;
-            transition: width 0.38s cubic-bezier(0.4,0,0.2,1), background 0.35s ease;
-        }
-        #bh-copy-pill.bh-pill-success .bh-pill-bar {
-            background: linear-gradient(90deg, #34a853, #00bcd4);
-        }
-        #bh-copy-pill.bh-pill-error .bh-pill-bar {
-            background: linear-gradient(90deg, #ea4335, #ff6d00);
-        }
-        #bh-copy-pill .bh-pill-count {
-            font-size: 11px;
-            font-weight: 700;
-            color: rgba(255,255,255,0.38);
-            letter-spacing: 0.3px;
-            min-width: 38px;
-            text-align: right;
-            transition: color 0.3s ease;
-        }
-        #bh-copy-pill.bh-pill-success .bh-pill-count { color: rgba(52,168,83,0.7); }
-        #bh-copy-pill.bh-pill-error   .bh-pill-count { color: rgba(234,67,53,0.7); }
-        #bh-copy-pill.bh-pill-cancelled .bh-pill-count { color: rgba(255,160,0,0.7); }
-        #bh-copy-pill.bh-pill-cancelled .bh-pill-bar {
-            background: linear-gradient(90deg, #ffa000, #ff6d00);
-        }
-        #bh-copy-pill.bh-pill-cancelled .bh-pill-icon { color: #ffa000; }
-        /* Cancel button inside the pill */
-        #bh-copy-pill .bh-pill-cancel {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 22px;
-            height: 22px;
-            margin-left: 4px;
-            border-radius: 50%;
-            border: none;
-            background: rgba(255,255,255,0.08);
-            color: rgba(255,255,255,0.45);
-            cursor: pointer;
-            flex-shrink: 0;
-            padding: 0;
-            transition: background 0.18s ease, color 0.18s ease, transform 0.15s ease;
-        }
-        #bh-copy-pill .bh-pill-cancel:hover {
-            background: rgba(234, 67, 53, 0.28);
-            color: #ea4335;
-            transform: scale(1.12);
-        }
-        #bh-copy-pill .bh-pill-cancel:active { transform: scale(0.92); }
-        #bh-copy-pill .bh-pill-cancel svg {
-            width: 11px;
-            height: 11px;
-            display: block;
-            pointer-events: none;
-        }
-        /* Hide cancel button in terminal states */
-        #bh-copy-pill.bh-pill-success .bh-pill-cancel,
-        #bh-copy-pill.bh-pill-error   .bh-pill-cancel,
-        #bh-copy-pill.bh-pill-cancelled .bh-pill-cancel {
-            display: none;
-        }
-        /* --- Server selection state --- */
-        #bh-copy-pill.bh-pill-server-select .bh-pill-sep,
-        #bh-copy-pill.bh-pill-server-select .bh-pill-progress-wrap,
-        #bh-copy-pill.bh-pill-server-select .bh-pill-count,
-        #bh-copy-pill.bh-pill-server-select .bh-pill-cancel {
-            display: none;
-        }
-        #bh-copy-pill .bh-pill-srv {
-            display: none;
-            gap: 7px;
-            align-items: center;
-            margin-left: 2px;
-        }
-        #bh-copy-pill.bh-pill-server-select .bh-pill-srv { display: flex; }
-        #bh-copy-pill .bh-pill-srv-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 5px 13px;
-            border-radius: 14px;
-            border: 1px solid rgba(255,255,255,0.14);
-            background: rgba(255,255,255,0.07);
-            color: rgba(255,255,255,0.85);
-            font-size: 12px;
-            font-weight: 600;
-            font-family: inherit;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: background 0.17s ease, border-color 0.17s ease, transform 0.13s ease;
-        }
-        #bh-copy-pill .bh-pill-srv-btn:hover {
-            background: rgba(255,255,255,0.13);
-            border-color: rgba(255,255,255,0.28);
-            transform: scale(1.06);
-        }
-        #bh-copy-pill .bh-pill-srv-btn:active { transform: scale(0.96); }
-        #bh-copy-pill .bh-pill-srv-btn[data-srv="0"]:hover {
-            border-color: rgba(107,165,245,0.7);
-            background: rgba(107,165,245,0.12);
-        }
-        #bh-copy-pill .bh-pill-srv-btn[data-srv="1"]:hover {
-            border-color: rgba(93,186,114,0.7);
-            background: rgba(93,186,114,0.12);
-        }
-        .bh-srv-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
-        .bh-srv-dot-0 { background: #6ba5f5; }
-        .bh-srv-dot-1 { background: #5dba72; }
     `);
 
     // --- Enhanced Drama Detection Patterns ---
@@ -1917,684 +1602,9 @@
         return true;
     }
 
-    // --- Buzzheavier Enhancements ---
-    const buzzDownloadUrlsCache = new Map();
 
-    function resolveBuzzDownloadUrlsFromDoc(doc, baseUrl) {
-        // Use broad selector first (hx-get*="/download"), then narrow with .gay-button if needed.
-        // BuzzHeavier may change class names; hx-get attribute is the reliable signal.
-        let anchors = Array.from(doc.querySelectorAll('a[hx-get*="/download"]'));
-        // De-duplicate by hx-get value (avoid counting the same endpoint twice)
-        const seen = new Set();
-        anchors = anchors.filter(a => {
-            const v = a.getAttribute('hx-get');
-            if (!v || seen.has(v)) return false;
-            seen.add(v);
-            return true;
-        });
-        return anchors
-            .map(anchor => anchor.getAttribute('hx-get'))
-            .map(endpoint => endpoint?.replace(/&amp;/g, '&'))
-            .map(endpoint => {
-                try {
-                    return new URL(endpoint, baseUrl).href;
-                } catch {
-                    return null;
-                }
-            })
-            .filter(Boolean)
-            .slice(0, 2);
-    }
 
-    function resolveBuzzDownloadUrls(pageUrl, callback) {
-        if (buzzDownloadUrlsCache.has(pageUrl)) {
-            callback(buzzDownloadUrlsCache.get(pageUrl));
-            return;
-        }
 
-        const currentUrl = window.location.href.split('?')[0].split('#')[0].replace(/\/$/, '');
-        const normalizedPageUrl = pageUrl.split('?')[0].split('#')[0].replace(/\/$/, '');
-
-        if (normalizedPageUrl === currentUrl) {
-            const urls = resolveBuzzDownloadUrlsFromDoc(document, pageUrl);
-            if (urls.length > 0) {
-                buzzDownloadUrlsCache.set(pageUrl, urls);
-                callback(urls);
-                return;
-            }
-        }
-
-        GM_xmlhttpRequest({
-            method: "GET",
-            url: pageUrl,
-            onload: function(response) {
-                try {
-                    const doc = new DOMParser().parseFromString(response.responseText, 'text/html');
-                    const urls = resolveBuzzDownloadUrlsFromDoc(doc, pageUrl);
-                    if (urls.length > 0) {
-                        buzzDownloadUrlsCache.set(pageUrl, urls);
-                        callback(urls);
-                    } else {
-                        // Fallback to regex extraction
-                        const hxMatches = Array.from(response.responseText.matchAll(/hx-get="([^"]*\/download\?t=[^"]+)"/g));
-                        const urlsFallback = hxMatches.map(m => {
-                            try {
-                                return new URL(m[1].replace(/&amp;/g, '&'), pageUrl).href;
-                            } catch {
-                                return null;
-                            }
-                        }).filter(Boolean).slice(0, 2);
-
-                        if (urlsFallback.length > 0) {
-                            buzzDownloadUrlsCache.set(pageUrl, urlsFallback);
-                            callback(urlsFallback);
-                        } else {
-                            callback([]);
-                        }
-                    }
-                } catch (e) {
-                    console.error("Error parsing Buzzheavier page:", e);
-                    callback([]);
-                }
-            },
-            onerror: function(err) {
-                console.error("Network error fetching Buzzheavier page:", err);
-                callback([]);
-            }
-        });
-    }
-
-    function fetchDirectLink(pageUrl, serverIndex, callback) {
-        resolveBuzzDownloadUrls(pageUrl, (urls) => {
-            const downloadUrl = urls[serverIndex] || urls[0];
-            if (!downloadUrl) {
-                showNotification("Failed to resolve download URL.", "error");
-                callback(null);
-                return;
-            }
-
-            const htmxHeaders = {
-                "hx-current-url": pageUrl,
-                "hx-request": "true",
-                "referer": pageUrl
-            };
-
-            // Helper: extract redirect URL from response headers or body
-            function extractRedirect(response) {
-                const headers = response.responseHeaders || '';
-                const m = headers.match(/hx-redirect:\s*([^\r\n]+)/i)
-                       || headers.match(/location:\s*([^\r\n]+)/i);
-                if (m && m[1]) return m[1].trim();
-                // Some servers embed HX-Redirect in the response body as a meta tag or JSON
-                const body = response.responseText || '';
-                const bodyM = body.match(/["']?hx-redirect["']?\s*:\s*["']([^"']+)["']/i)
-                           || body.match(/window\.location(?:\.href)?\s*=\s*["']([^"']+)["']/i);
-                if (bodyM && bodyM[1]) return bodyM[1].trim();
-                return null;
-            }
-
-            // Try HEAD first (fast, low bandwidth)
-            GM_xmlhttpRequest({
-                method: "HEAD",
-                url: downloadUrl,
-                headers: htmxHeaders,
-                onload: function(response) {
-                    const redirect = extractRedirect(response);
-                    if (redirect) {
-                        callback(redirect);
-                    } else {
-                        // HEAD gave no redirect – fall back to GET (some servers require it)
-                        GM_xmlhttpRequest({
-                            method: "GET",
-                            url: downloadUrl,
-                            headers: htmxHeaders,
-                            onload: function(getResponse) {
-                                const getRedirect = extractRedirect(getResponse);
-                                if (getRedirect) {
-                                    callback(getRedirect);
-                                } else {
-                                    showNotification("Failed to obtain direct link.", "error");
-                                    callback(null);
-                                }
-                            },
-                            onerror: function() {
-                                showNotification("Network error obtaining direct link.", "error");
-                                callback(null);
-                            }
-                        });
-                    }
-                },
-                onerror: function() {
-                    // HEAD blocked entirely – try GET directly
-                    GM_xmlhttpRequest({
-                        method: "GET",
-                        url: downloadUrl,
-                        headers: htmxHeaders,
-                        onload: function(getResponse) {
-                            const getRedirect = extractRedirect(getResponse);
-                            if (getRedirect) {
-                                callback(getRedirect);
-                            } else {
-                                showNotification("Network error obtaining direct link.", "error");
-                                callback(null);
-                            }
-                        },
-                        onerror: function() {
-                            showNotification("Network error obtaining direct link.", "error");
-                            callback(null);
-                        }
-                    });
-                }
-            });
-        });
-    }
-
-    // --- BuzzHeavier Copy-All Progress Pill ---
-    // A dynamic island-style pill: server picker → live progress → success/error, with cancel.
-    const buzzPill = (() => {
-        const SVG_SPIN     = `<svg viewBox="0 0 24 24"><path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z" fill="currentColor"/></svg>`;
-        const SVG_CHECK    = `<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>`;
-        const SVG_CROSS    = `<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/></svg>`;
-        const SVG_STOP     = `<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor"/></svg>`;
-        const SVG_COPY_ICO = `<svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" fill="currentColor"/></svg>`;
-
-        let pill         = null;
-        let dismissTimer = null;
-        let cancelled    = false;
-        let cancelCb     = null;
-        let _selectCb    = null;
-
-        function getOrCreate() {
-            if (pill && document.body.contains(pill)) return pill;
-            pill = document.createElement('div');
-            pill.id = 'bh-copy-pill';
-            pill.innerHTML = `
-                <div class="bh-pill-icon" id="bh-pill-icon"></div>
-                <span class="bh-pill-label" id="bh-pill-label"></span>
-                <div class="bh-pill-srv" id="bh-pill-srv">
-                    <button class="bh-pill-srv-btn" data-srv="0"><span class="bh-srv-dot bh-srv-dot-0"></span>Server 1</button>
-                    <button class="bh-pill-srv-btn" data-srv="1"><span class="bh-srv-dot bh-srv-dot-1"></span>Server 2</button>
-                </div>
-                <div class="bh-pill-sep"></div>
-                <div class="bh-pill-progress-wrap"><div class="bh-pill-bar" id="bh-pill-bar"></div></div>
-                <span class="bh-pill-count" id="bh-pill-count"></span>
-                <button class="bh-pill-cancel" id="bh-pill-cancel" title="Cancel">${SVG_STOP}</button>
-            `;
-            pill.querySelectorAll('.bh-pill-srv-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const idx = parseInt(btn.dataset.srv, 10);
-                    pill.classList.remove('bh-pill-server-select');
-                    if (typeof _selectCb === 'function') {
-                        const cb = _selectCb;
-                        _selectCb = null;
-                        cb(idx);
-                    }
-                });
-            });
-            pill.querySelector('#bh-pill-cancel').addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (cancelled) return;
-                cancelled = true;
-                if (typeof cancelCb === 'function') cancelCb();
-                _setState('cancelled', 'Cancelled', 0, 0);
-                dismissTimer = setTimeout(hide, 2000);
-            });
-            document.body.appendChild(pill);
-            return pill;
-        }
-
-        function _setState(state, label, done, total) {
-            const p   = getOrCreate();
-            const ico = p.querySelector('#bh-pill-icon');
-            const lbl = p.querySelector('#bh-pill-label');
-            const bar = p.querySelector('#bh-pill-bar');
-            const cnt = p.querySelector('#bh-pill-count');
-            p.classList.remove('bh-pill-success', 'bh-pill-error', 'bh-pill-cancelled', 'bh-pill-server-select');
-            ico.classList.remove('bh-pill-spinning');
-            if (state === 'progress') {
-                ico.innerHTML = SVG_SPIN;
-                ico.classList.add('bh-pill-spinning');
-                lbl.textContent = label || 'Fetching…';
-                const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
-                bar.style.width = pct + '%';
-                cnt.textContent = total > 0 ? `${done} / ${total}` : '';
-            } else if (state === 'success') {
-                p.classList.add('bh-pill-success');
-                ico.innerHTML = SVG_CHECK;
-                lbl.textContent = label || 'Copied!';
-                bar.style.width = '100%';
-                cnt.textContent = total > 0 ? `${total} link${total !== 1 ? 's' : ''}` : '';
-            } else if (state === 'error') {
-                p.classList.add('bh-pill-error');
-                ico.innerHTML = SVG_CROSS;
-                lbl.textContent = label || 'Failed';
-                bar.style.width = '100%';
-                cnt.textContent = '';
-            } else if (state === 'cancelled') {
-                p.classList.add('bh-pill-cancelled');
-                ico.innerHTML = SVG_CROSS;
-                lbl.textContent = label || 'Cancelled';
-                cnt.textContent = '';
-            }
-            p.classList.add('bh-pill-visible');
-        }
-
-        function show(state, label, done, total) {
-            if (cancelled && state === 'progress') return;
-            clearTimeout(dismissTimer);
-            _setState(state, label, done, total);
-            if (state === 'success') dismissTimer = setTimeout(hide, 3000);
-            if (state === 'error')   dismissTimer = setTimeout(hide, 3500);
-        }
-
-        function showServerSelect(onSelect) {
-            clearTimeout(dismissTimer);
-            cancelled = false;
-            _selectCb = onSelect;
-            const p   = getOrCreate();
-            const ico = p.querySelector('#bh-pill-icon');
-            const lbl = p.querySelector('#bh-pill-label');
-            p.classList.remove('bh-pill-success', 'bh-pill-error', 'bh-pill-cancelled');
-            ico.classList.remove('bh-pill-spinning');
-            ico.innerHTML   = SVG_COPY_ICO;
-            lbl.textContent = 'Copy from:';
-            p.classList.add('bh-pill-server-select', 'bh-pill-visible');
-        }
-
-        function hide() {
-            if (!pill) return;
-            pill.classList.remove('bh-pill-visible');
-        }
-
-        function onCancel(cb) { cancelled = false; cancelCb = cb; }
-        function isCancelled() { return cancelled; }
-
-        return { show, hide, showServerSelect, onCancel, isCancelled };
-    })();
-
-    function enhanceBuzzheavierContent() {
-        if (!config.buzzheavierEnhancements) return false;
-        if (!window.location.hostname.includes('buzzheavier.com')) return false;
-
-        // Inject global legend at top right of the site
-        if (!document.querySelector('.bh-legend-fixed')) {
-            const legend = document.createElement('div');
-            legend.className = 'bh-legend-fixed';
-            legend.innerHTML = `
-                <span style="display: inline-flex; align-items: center; gap: 6px;">
-                    <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background-color: #6ba5f5;"></span>
-                    Server 1
-                </span>
-                <span style="display: inline-flex; align-items: center; gap: 6px;">
-                    <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background-color: #5dba72;"></span>
-                    Server 2
-                </span>
-            `;
-            if (document.body) {
-                document.body.insertBefore(legend, document.body.firstChild);
-            }
-        }
-
-        // File-link helpers — exclude obvious nav/header anchors by requiring a path
-        // that looks like a file ID (not just '/', '/pricing', etc.).
-        const FILE_LINK_RE = /^\/[a-zA-Z0-9_-]{4,}(\?|$)/;
-        const isFileAnchor = (a) => {
-            if (!a || !a.href) return false;
-            const path = a.getAttribute('href') || '';
-            // Absolute buzzheavier or localhost URLs are always file links
-            if (a.href.includes('buzzheavier.com/') && path.length > 1) return true;
-            if (a.href.includes('localhost:')) return true;
-            // Root-relative path must match the file-ID pattern
-            return path.startsWith('/') && FILE_LINK_RE.test(path) && !path.startsWith('//');
-        };
-
-        const getFileLink = (parent) => {
-            const anchors = parent.querySelectorAll('a[href]');
-            for (const a of anchors) if (isFileAnchor(a)) return a;
-            return null;
-        };
-
-        const getFileLinks = (parent) => {
-            return [...new Set(
-                Array.from(parent.querySelectorAll('a[href]')).filter(isFileAnchor)
-            )];
-        };
-
-        // Find the main file-list tbody: prefer #tbody, fall back to any tbody that
-        // contains at least one row with a file anchor.
-        // Cache the found tbody via a dataset attribute so repeated observer calls
-        // always reference the same element (not one of the quality-split tbodies).
-        let mainTbody = document.querySelector('#tbody[data-sfx-main]')
-            || document.querySelector('table tbody[data-sfx-main]');
-
-        if (!mainTbody) {
-            // Look for #tbody first — accept it even if empty/no file-link rows
-            // yet. Firefox + HTMX populates rows asynchronously; the
-            // MutationObserver will re-fire once rows appear.
-            const byId = document.querySelector('#tbody');
-            if (byId) {
-                mainTbody = byId;
-            } else {
-                // Scan every tbody, skip ones we injected (id starts with 'tbody-')
-                for (const tb of document.querySelectorAll('table tbody')) {
-                    if (tb.id && tb.id.startsWith('tbody-')) continue; // our quality tbody
-                    const firstRow = tb.querySelector('tr');
-                    if (firstRow && getFileLink(firstRow)) {
-                        mainTbody = tb;
-                        break;
-                    }
-                }
-            }
-            if (mainTbody) mainTbody.dataset.sfxMain = '1';
-        }
-
-        const isHomePage = mainTbody !== null
-            && window.location.pathname.length > 1
-            && !window.location.pathname.endsWith('/download');
-
-        // Single-file page: has an HTMX download endpoint but no multi-row table
-        const isSinglePage = !isHomePage && !!document.querySelector('a[hx-get*="/download"]');
-
-        const handleAction = (type, pageUrl, btnElement, serverIndex) => {
-            if (btnElement.classList.contains('bh-loading')) return;
-
-            const originalHTML = btnElement.innerHTML;
-            btnElement.innerHTML = ICON_SPIN;
-            btnElement.classList.add('bh-loading');
-
-            fetchDirectLink(pageUrl, serverIndex, (directUrl) => {
-                btnElement.classList.remove('bh-loading');
-                btnElement.innerHTML = originalHTML;
-
-                if (!directUrl) return;
-
-                if (type === 'copy') {
-                    copyToClipboard(directUrl).then((success) => {
-                        if (success) {
-                            btnElement.innerHTML = ICON_CHECK;
-                            btnElement.classList.add('bh-copied');
-                            setTimeout(() => {
-                                btnElement.innerHTML = originalHTML;
-                                btnElement.classList.remove('bh-copied');
-                            }, 2000);
-                            showNotification('Direct link copied!', 'success');
-                        } else {
-                            showNotification('Failed to copy link!', 'error');
-                        }
-                    });
-                } else if (type === 'dl') {
-                    window.location.assign(directUrl);
-                }
-            });
-        };
-
-        const ICON_COPY = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
-        const ICON_DL   = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>`;
-        const ICON_SPIN = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z"/></svg>`;
-        const ICON_CHECK= `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
-
-        const createCapBtn = (icon, title, type, fileUrl, serverIndex) => {
-            const btn = document.createElement('button');
-            btn.className = 'bh-cap-btn';
-            btn.title = title;
-            btn.innerHTML = icon;
-            btn.onclick = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleAction(type, fileUrl, btn, serverIndex);
-            };
-            return btn;
-        };
-
-        const createCapsule = (fileUrl, serverIndex) => {
-            const serverNumber = serverIndex + 1;
-            const cap = document.createElement('span');
-            cap.className = `bh-capsule bh-capsule-s${serverNumber}`;
-
-            if (config.buzzCopyLinks) {
-                cap.appendChild(createCapBtn(ICON_COPY, `Copy direct link – Server ${serverNumber}`, 'copy', fileUrl, serverIndex));
-            }
-            if (config.buzzDirectDownload) {
-                cap.appendChild(createCapBtn(ICON_DL, `Download – Server ${serverNumber}`, 'dl', fileUrl, serverIndex));
-            }
-            // Return null when no features are enabled (avoid injecting empty capsules)
-            return cap.children.length > 0 ? cap : null;
-        };
-
-        const addCapsulesToRow = (row) => {
-            // Skip if neither copy nor download feature is enabled
-            if (!config.buzzCopyLinks && !config.buzzDirectDownload) return;
-            const linkEl = getFileLink(row);
-            if (!linkEl) return;
-            if (row.querySelector('.bh-capsule-wrap')) return;
-
-            const fileUrl = linkEl.href;
-            const cap0 = createCapsule(fileUrl, 0);
-            const cap1 = createCapsule(fileUrl, 1);
-            if (!cap0 && !cap1) return; // nothing to inject
-
-            const wrap = document.createElement('span');
-            wrap.className = 'bh-capsule-wrap';
-            if (cap0) wrap.appendChild(cap0);
-            if (cap1) wrap.appendChild(cap1);
-
-            // Absolutely-position the wrap inside the Name <td>.
-            // We must NOT let it be inline (that breaks table layout in Firefox).
-            const td = linkEl.closest('td') || linkEl.parentNode;
-            if (td) {
-                td.style.position = 'relative';
-                td.style.overflow = 'hidden'; // keep buttons clipped to cell
-
-                // Truncate link text so it never overlaps the buttons
-                linkEl.style.display = 'inline-block';
-                linkEl.style.maxWidth = 'calc(100% - 92px)';
-                linkEl.style.overflow = 'hidden';
-                linkEl.style.textOverflow = 'ellipsis';
-                linkEl.style.whiteSpace = 'nowrap';
-                linkEl.style.verticalAlign = 'middle';
-
-                td.appendChild(wrap);
-            }
-        };
-
-        const copyLinks = (linksArray, btnElement) => {
-            if (!linksArray || linksArray.length === 0) return;
-
-            const origText = btnElement ? btnElement.innerText : '';
-
-            // Disable button immediately so it can't be double-clicked
-            if (btnElement) {
-                btnElement.disabled      = true;
-                btnElement.style.opacity = '0.5';
-            }
-
-            const restoreBtn = () => {
-                if (!btnElement) return;
-                btnElement.disabled      = false;
-                btnElement.style.opacity = '';
-                btnElement.innerText     = origText;
-            };
-
-            // Register cancel handler — also resets cancelled flag for a fresh run
-            buzzPill.onCancel(restoreBtn);
-
-            // Phase 1: show server picker in the pill
-            buzzPill.showServerSelect((serverIndex) => {
-                // Phase 2: user picked a server — start fetching
-                const total     = linksArray.length;
-                let processed   = 0;
-                let directLinks = [];
-
-                buzzPill.show('progress', 'Fetching links…', 0, total);
-
-                linksArray.forEach(pageUrl => {
-                    fetchDirectLink(pageUrl, serverIndex, (directUrl) => {
-                        // Drop results that arrive after cancellation
-                        if (buzzPill.isCancelled()) return;
-
-                        processed++;
-                        if (directUrl) directLinks.push(directUrl);
-
-                        buzzPill.show('progress', 'Fetching links…', processed, total);
-
-                        if (processed === total) {
-                            restoreBtn();
-
-                            if (directLinks.length > 0) {
-                                copyToClipboard(directLinks.join('\n')).then((success) => {
-                                    if (success) {
-                                        const srvLabel = serverIndex === 0 ? 'Server 1' : 'Server 2';
-                                        buzzPill.show('success', `${srvLabel} — copied!`, directLinks.length, directLinks.length);
-                                        if (btnElement) {
-                                            btnElement.innerText = '✓ Copied!';
-                                            setTimeout(() => { btnElement.innerText = origText; }, 2200);
-                                        }
-                                    } else {
-                                        buzzPill.show('error', 'Clipboard write failed', 0, 0);
-                                    }
-                                });
-                            } else {
-                                buzzPill.show('error', 'No direct links found', 0, 0);
-                            }
-                        }
-                    });
-                });
-            });
-        };
-
-        const processRows = (rows) => {
-            rows.forEach(row => {
-                if (row.classList.contains('sfx-processed')) return;
-                row.classList.add('sfx-processed');
-
-                const linkEl = getFileLink(row);
-                if (!linkEl) return;
-
-                const fileUrl = linkEl.href;
-                
-                if (config.buzzSplitQuality) {
-                    // textContent is more reliable than innerText in Firefox
-                    const name = (linkEl.textContent || linkEl.innerText || '').toLowerCase();
-                    let quality = 'Other';
-                    for (const q of ['1080p', '720p', '540p', '480p']) {
-                        if (name.includes(q)) {
-                            quality = q;
-                            break;
-                        }
-                    }
-
-                    let targetTbody = document.getElementById(`tbody-${quality}`);
-                    if (!targetTbody) {
-                        const parentTable = mainTbody ? mainTbody.closest('table') : document.querySelector('table');
-                        if (!parentTable) {
-                            addCapsulesToRow(row); // no table to split, just add buttons
-                            return;
-                        }
-                        const container = parentTable.parentNode;
-                        const theadEl = parentTable.querySelector('thead');
-                        const headerRow = theadEl ? theadEl.outerHTML : '';
-                        const tableClass = parentTable.className;
-
-                        const wrapper = document.createElement('div');
-                        wrapper.className = 'w-full relative shadow overflow-hidden sm:rounded-lg overflow-x-auto my-6';
-
-                        let copyAllBtnHtml = '';
-                        if (config.buzzCopyLinks) {
-                            copyAllBtnHtml = `<button class="sinflix-copy-btn btn btn-sm btn-outline-primary float-right" data-q="${quality}">Copy Links</button>`;
-                        }
-
-                        wrapper.innerHTML = `
-                            <h3 class="p-3 text-lg font-bold bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
-                                ${quality}
-                                ${copyAllBtnHtml}
-                            </h3>
-                            <table class="${tableClass}" style="margin-top: 0">
-                                ${headerRow}
-                                <tbody id="tbody-${quality}">
-                                </tbody>
-                            </table>
-                        `;
-                        container.insertBefore(wrapper, parentTable);
-                        targetTbody = wrapper.querySelector(`#tbody-${quality}`);
-
-                        const copyBtn = wrapper.querySelector(`.sinflix-copy-btn[data-q="${quality}"]`);
-                        if (copyBtn) {
-                            copyBtn.addEventListener('click', function() {
-                                const links = getFileLinks(targetTbody).map(a => a.href);
-                                copyLinks(links, this);
-                            });
-                        }
-                    }
-
-                    targetTbody.appendChild(row);
-                }
-
-                addCapsulesToRow(row);
-            });
-        };
-
-        if (isHomePage) {
-            // Select ALL rows inside the detected tbody — no class dependency
-            const rows = Array.from(
-                (mainTbody || document).querySelectorAll('tr:not(.sfx-processed)')
-            ).filter(row => {
-                if (mainTbody && row.parentNode !== mainTbody) return false;
-                return getFileLink(row) !== null;
-            });
-
-            // Only process if there are actual file rows — prevents hiding the table
-            // on empty first load (HTMX loads rows async, so we wait for the observer
-            // to fire again once HTMX has populated the tbody).
-            if (rows.length > 0) {
-                // Hide original table only AFTER we have rows to move (quality split).
-                // Hiding early on an empty tbody causes Firefox to never show quality sections.
-                if (mainTbody && config.buzzSplitQuality && !mainTbody.dataset.sfxHidden) {
-                    const parentTable = mainTbody.closest('table');
-                    if (parentTable) {
-                        parentTable.style.display = 'none';
-                        mainTbody.dataset.sfxHidden = '1';
-                    }
-                }
-                processRows(rows);
-            }
-
-            if (!config.buzzSplitQuality && mainTbody && config.buzzCopyLinks) {
-                const parentTable = mainTbody.closest('table');
-                if (parentTable && !parentTable.parentNode.querySelector('.sinflix-copy-all-btn')) {
-                    const copyBtn = document.createElement('button');
-                    copyBtn.className = 'sinflix-copy-all-btn sinflix-copy-btn btn btn-sm bg-blue-600 text-white px-3 py-1 rounded my-2';
-                    copyBtn.innerText = 'Copy All Links';
-                    copyBtn.onclick = function() {
-                        const links = getFileLinks(mainTbody).map(a => a.href);
-                        copyLinks(links, this);
-                    };
-                    parentTable.parentNode.insertBefore(copyBtn, parentTable);
-                }
-            }
-        } else if (isSinglePage) {
-            // On single-file pages inject one combined capsule-wrap after the FIRST server button
-            if (config.buzzCopyLinks || config.buzzDirectDownload) {
-                // Prefer the non-alt server button; fall back to any download button
-                const firstDlBtn = document.querySelector('a[hx-get*="/download"]:not([hx-get*="alt=true"])')
-                                || document.querySelector('a[hx-get*="/download"]');
-                if (firstDlBtn && !firstDlBtn.parentNode.querySelector('.bh-capsule-wrap')) {
-                    const fileUrl = window.location.href;
-                    const cap0 = createCapsule(fileUrl, 0);
-                    const cap1 = createCapsule(fileUrl, 1);
-                    if (cap0 || cap1) {
-                        const wrap = document.createElement('span');
-                        wrap.className = 'bh-capsule-wrap';
-                        if (cap0) wrap.appendChild(cap0);
-                        if (cap1) wrap.appendChild(cap1);
-                        firstDlBtn.parentNode.appendChild(wrap);
-                    }
-                }
-            }
-        }
-
-        return true;
-    }
     // --- Main Processing Function ---
     function enhancePageContentSync() {
         const content = document.querySelector('.entry-text article');
@@ -2622,7 +1632,7 @@
             if (link.dataset.sinflixProcessed || link.href.startsWith('#') || link.href.startsWith('javascript:')) return;
             link.dataset.sinflixProcessed = 'true';
             
-            const isDownloadLink = link.href.includes('buzzheavier.com') 
+            const isDownloadLink = link.href.includes('mega.nz') 
                                 || link.href.includes('mega.nz') 
                                 || link.href.includes('mega.co.nz') 
                                 || link.href.includes('pst.moe')
@@ -2637,10 +1647,8 @@
             }
         });
 
-        // 3. Setup BuzzHeavier regex
-        const buzzRegex = /\b(?![a-zA-Z]{12}\b)([a-zA-Z0-9]{12})\b/g;
 
-        // 4. Process all text nodes for Circle injection and BuzzHeavier link conversion in one pass
+        // 4. Process all text nodes for Circle injection in one pass
         const textNodes = [];
         const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT, {
             acceptNode: function(n) {
@@ -2730,37 +1738,7 @@
                     lineFragment.appendChild(container);
                 }
 
-                // B. Convert Buzzheavier IDs to links
-                let linePartsFrag = null;
-                if (config.convertBuzzheavierLinks) {
-                    buzzRegex.lastIndex = 0;
-                    let lastIdx = 0;
-                    let match;
 
-                    while ((match = buzzRegex.exec(line)) !== null) {
-                        if (!linePartsFrag) {
-                            linePartsFrag = document.createDocumentFragment();
-                            modified = true;
-                        }
-                        if (match.index > lastIdx) {
-                            linePartsFrag.appendChild(document.createTextNode(line.slice(lastIdx, match.index)));
-                        }
-
-                        const link = document.createElement('a');
-                        link.href = 'https://buzzheavier.com/' + match[1];
-                        link.textContent = link.href;
-                        link.target = '_blank';
-                        linePartsFrag.appendChild(link);
-
-                        lastIdx = match.index + match[0].length;
-                    }
-
-                    if (linePartsFrag) {
-                        if (lastIdx < line.length) {
-                            linePartsFrag.appendChild(document.createTextNode(line.slice(lastIdx)));
-                        }
-                    }
-                }
 
                 // C. Assemble the line, preserving original text content when no link was matched
                 if (lineFragment) {
@@ -2990,16 +1968,7 @@
                             </label>
                         </div>
 
-                        <div class="kdrama-toggle-item">
-                            <div class="kdrama-toggle-info">
-                                <div class="kdrama-toggle-label">BuzzHeavier Link Conversion</div>
-                                <div class="kdrama-toggle-description">Automatically convert BuzzHeavier IDs to clickable links</div>
-                            </div>
-                            <label class="kdrama-toggle-switch">
-                                <input type="checkbox" id="setting-buzz" ${config.convertBuzzheavierLinks ? 'checked' : ''}>
-                                <span class="kdrama-toggle-slider"></span>
-                            </label>
-                        </div>
+
                     </div>
 
                     <!-- Interface Section -->
@@ -3137,60 +2106,7 @@ ${'showFdCircle' in config ? `
                         </div>
                     </div>
 
-                    <!-- Buzzheavier Section -->
-                    <div class="kdrama-settings-section">
-                        <h3 class="kdrama-section-title">
-                            <svg class="section-icon" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-                            </svg>
-                            Buzzheavier
-                        </h3>
 
-                        <div class="kdrama-toggle-item">
-                            <div class="kdrama-toggle-info">
-                                <div class="kdrama-toggle-label">Enable Buzzheavier Features</div>
-                                <div class="kdrama-toggle-description">Master switch for Buzzheavier enhancements</div>
-                            </div>
-                            <label class="kdrama-toggle-switch">
-                                <input type="checkbox" id="setting-buzz-main" ${config.buzzheavierEnhancements ? 'checked' : ''}>
-                                <span class="kdrama-toggle-slider"></span>
-                            </label>
-                        </div>
-
-                        <div class="kdrama-toggle-item">
-                            <div class="kdrama-toggle-info">
-                                <div class="kdrama-toggle-label">Split by Quality</div>
-                                <div class="kdrama-toggle-description">Divide folder table into multiple tables based on resolution</div>
-                            </div>
-                            <label class="kdrama-toggle-switch">
-                                <input type="checkbox" id="setting-buzz-split" ${config.buzzSplitQuality ? 'checked' : ''}>
-                                <span class="kdrama-toggle-slider"></span>
-                            </label>
-                        </div>
-
-                        <div class="kdrama-toggle-item">
-                            <div class="kdrama-toggle-info">
-                                <div class="kdrama-toggle-label">Direct Download Links</div>
-                                <div class="kdrama-toggle-description">Add direct download button next to file links</div>
-                            </div>
-                            <label class="kdrama-toggle-switch">
-                                <input type="checkbox" id="setting-buzz-dl" ${config.buzzDirectDownload ? 'checked' : ''}>
-                                <span class="kdrama-toggle-slider"></span>
-                            </label>
-                        </div>
-
-                        <div class="kdrama-toggle-item">
-                            <div class="kdrama-toggle-info">
-                                <div class="kdrama-toggle-label">Copy Links Button</div>
-                                <div class="kdrama-toggle-description">Add button to copy all download links from table/page</div>
-                            </div>
-                            <label class="kdrama-toggle-switch">
-                                <input type="checkbox" id="setting-buzz-copy" ${config.buzzCopyLinks ? 'checked' : ''}>
-                                <span class="kdrama-toggle-slider"></span>
-                            </label>
-                        </div>
-
-                    </div>
 
                     <!-- Link Behavior Section -->
                     <div class="kdrama-settings-section">
@@ -3338,7 +2254,6 @@ ${'showFdCircle' in config ? `
             // Save checkbox values
             GM_setValue('showGoogleCircle', document.getElementById('setting-google').checked);
             GM_setValue('showMdlCircle', document.getElementById('setting-mdl').checked);
-            GM_setValue('convertBuzzheavierLinks', document.getElementById('setting-buzz').checked);
             GM_setValue('showBackToTopButton', document.getElementById('setting-back-to-top').checked);
             GM_setValue('moveCurrentlyAiringToTop', document.getElementById('setting-move-airing').checked);
             GM_setValue('showChatBoxButton', document.getElementById('setting-chat-box').checked);
@@ -3361,14 +2276,6 @@ ${'showFdCircle' in config ? `
 
             GM_setValue('googleSearchSuffix', document.getElementById('setting-google-suffix').value);
 
-            // NEW: Buzzheavier Save
-            GM_setValue('buzzheavierEnhancements', document.getElementById('setting-buzz-main').checked);
-            GM_setValue('buzzSplitQuality', document.getElementById('setting-buzz-split').checked);
-            GM_setValue('buzzDirectDownload', document.getElementById('setting-buzz-dl').checked);
-            GM_setValue('buzzCopyLinks', document.getElementById('setting-buzz-copy').checked);
-
-            const customSchemeEl = document.getElementById('setting-buzz-custom-scheme');
-            if (customSchemeEl) GM_setValue('buzzCustomScheme', customSchemeEl.value);
 
             // NEW: Top search bar toggle
             GM_setValue('showTopSearchBar', document.getElementById('setting-top-searchbar').checked);
@@ -3980,58 +2887,6 @@ ${'showFdCircle' in config ? `
             return;
         }
 
-        if (window.location.hostname.includes('buzzheavier.com')) {
-            try {
-                enhanceBuzzheavierContent();
-
-                // Debounced MutationObserver for HTMX SPA navigation & dynamic rendering.
-                let buzzObserverTimer = null;
-                const runBuzzEnhance = (mutations) => {
-                    // Check if called by MutationObserver; if so, verify mutations list
-                    if (mutations && Array.isArray(mutations)) {
-                        let hasTable = false;
-                        for (const m of mutations) {
-                            if (m.type === 'childList') {
-                                for (const node of m.addedNodes) {
-                                    if (node.nodeType === 1) { // ELEMENT_NODE
-                                        const tag = node.localName;
-                                        if (tag === 'tr' && node.classList.contains('sfx-processed')) {
-                                            continue;
-                                        }
-                                        if (tag === 'tr' || tag === 'tbody' || tag === 'table' || node.querySelector('tr:not(.sfx-processed), tbody, table')) {
-                                            hasTable = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                            if (hasTable) break;
-                        }
-                        if (!hasTable) return;
-                    }
-
-                    clearTimeout(buzzObserverTimer);
-                    buzzObserverTimer = setTimeout(() => {
-                        try {
-                            enhanceBuzzheavierContent();
-                        } catch (e) {
-                            console.error('Sinflix Modifier error during buzzheavier observer processing:', e);
-                        }
-                    }, 30);
-                };
-
-                const observer = new MutationObserver(runBuzzEnhance);
-                observer.observe(document.body, { childList: true, subtree: true });
-
-                // Also listen for HTMX events
-                document.body.addEventListener('htmx:afterSwap', () => runBuzzEnhance());
-                document.body.addEventListener('htmx:afterSettle', () => runBuzzEnhance());
-            } catch (e) {
-                console.error('Sinflix Modifier error during buzzheavier enhancement:', e);
-            }
-            createSettingsUI();
-            return;
-        }
 
         // --- Content Enhancement ---
         try {
@@ -4062,8 +2917,7 @@ ${'showFdCircle' in config ? `
             }
 
             // 2. Download links check
-            const isDownloadLink = link.href.includes('buzzheavier.com')
-                                || link.href.includes('mega.nz')
+            const isDownloadLink = link.href.includes('mega.nz')
                                 || link.href.includes('mega.co.nz')
                                 || link.href.includes('pst.moe')
                                 || link.href.includes('pixeldrain.com')
