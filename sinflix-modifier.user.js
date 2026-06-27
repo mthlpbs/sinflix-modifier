@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.27.13
+// @version      26.06.27.14
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
@@ -2454,17 +2454,6 @@
                 const linkEl = getFileLink(row);
                 if (!linkEl) return;
 
-                // BuzzHeavier often uses TWO <tr> per file entry:
-                //   • Row A: filename link (this row)
-                //   • Row B: size / views / date metadata (next sibling, no file link)
-                // We must carry Row B with Row A whenever we move rows (quality split).
-                const nextSib = row.nextElementSibling;
-                const dataRow = (nextSib
-                    && nextSib.tagName === 'TR'
-                    && !nextSib.classList.contains('sfx-processed')
-                    && !getFileLink(nextSib)) ? nextSib : null;
-                if (dataRow) dataRow.classList.add('sfx-processed');
-
                 const fileUrl = linkEl.href;
                 
                 if (config.buzzSplitQuality) {
@@ -2522,8 +2511,6 @@
                     }
 
                     targetTbody.appendChild(row);
-                    // Move the companion data row (size/views/date) right after the name row
-                    if (dataRow) targetTbody.appendChild(dataRow);
                 }
 
                 addCapsulesToRow(row);
@@ -2534,7 +2521,10 @@
             // Select ALL rows inside the detected tbody — no class dependency
             const rows = Array.from(
                 (mainTbody || document).querySelectorAll('tr:not(.sfx-processed)')
-            ).filter(row => getFileLink(row) !== null);
+            ).filter(row => {
+                if (mainTbody && row.parentNode !== mainTbody) return false;
+                return getFileLink(row) !== null;
+            });
 
             // Only process if there are actual file rows — prevents hiding the table
             // on empty first load (HTMX loads rows async, so we wait for the observer
