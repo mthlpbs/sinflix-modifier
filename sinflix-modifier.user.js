@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.27.18
+// @version      26.06.27.19
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
@@ -3984,7 +3984,30 @@ ${'showFdCircle' in config ? `
 
                 // Debounced MutationObserver for HTMX SPA navigation & dynamic rendering.
                 let buzzObserverTimer = null;
-                const runBuzzEnhance = () => {
+                const runBuzzEnhance = (mutations) => {
+                    // Check if called by MutationObserver; if so, verify mutations list
+                    if (mutations && Array.isArray(mutations)) {
+                        let hasTable = false;
+                        for (const m of mutations) {
+                            if (m.type === 'childList') {
+                                for (const node of m.addedNodes) {
+                                    if (node.nodeType === 1) { // ELEMENT_NODE
+                                        const tag = node.localName;
+                                        if (tag === 'tr' && node.classList.contains('sfx-processed')) {
+                                            continue;
+                                        }
+                                        if (tag === 'tr' || tag === 'tbody' || tag === 'table' || node.querySelector('tr:not(.sfx-processed), tbody, table')) {
+                                            hasTable = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            if (hasTable) break;
+                        }
+                        if (!hasTable) return;
+                    }
+
                     clearTimeout(buzzObserverTimer);
                     buzzObserverTimer = setTimeout(() => {
                         try {
@@ -3992,17 +4015,15 @@ ${'showFdCircle' in config ? `
                         } catch (e) {
                             console.error('Sinflix Modifier error during buzzheavier observer processing:', e);
                         }
-                    }, 350);
+                    }, 30);
                 };
 
                 const observer = new MutationObserver(runBuzzEnhance);
                 observer.observe(document.body, { childList: true, subtree: true });
 
-                // Also listen for HTMX events — these fire AFTER HTMX has
-                // finished inserting content, giving us a reliable trigger even
-                // when the MutationObserver debounce is still pending.
-                document.body.addEventListener('htmx:afterSwap', runBuzzEnhance);
-                document.body.addEventListener('htmx:afterSettle', runBuzzEnhance);
+                // Also listen for HTMX events
+                document.body.addEventListener('htmx:afterSwap', () => runBuzzEnhance());
+                document.body.addEventListener('htmx:afterSettle', () => runBuzzEnhance());
             } catch (e) {
                 console.error('Sinflix Modifier error during buzzheavier enhancement:', e);
             }
