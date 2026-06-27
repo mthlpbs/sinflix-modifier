@@ -1,16 +1,16 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.27.15
+// @version      26.06.27.16
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
 // @match        https://rentry.co/sin-flix
 // @match        https://text.is/Sinflix
-// @match        https://pst.moe/paste/*
-// @match        https://buzzheavier.com/*
-// @match        https://mega.nz/*
-// @match        https://fetchrr.io/*
+// @match        https://*.pst.moe/paste/*
+// @match        https://*.buzzheavier.com/*
+// @match        https://*.mega.nz/*
+// @match        https://*.fetchrr.io/*
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_addStyle
@@ -58,7 +58,7 @@
 
     // --- One-time migration: reset stale BuzzHeavier settings stored as false
     // from an older version where these defaulted to false. Runs once per browser.
-    const BUZZ_SETTINGS_VERSION = '2'; // bump this whenever defaults change
+    const BUZZ_SETTINGS_VERSION = '3'; // bump this whenever defaults change
     if (GM_getValue('buzzSettingsVersion', '') !== BUZZ_SETTINGS_VERSION) {
         GM_setValue('buzzheavierEnhancements', true);
         GM_setValue('buzzSplitQuality', true);
@@ -3926,7 +3926,7 @@ ${'showFdCircle' in config ? `
 
     // --- Enhanced Initialization ---
     function initialize() {
-        if (window.location.hostname === 'pst.moe') {
+        if (window.location.hostname.includes('pst.moe')) {
             try {
                 enhancePstMoeContent();
             } catch (e) {
@@ -3944,7 +3944,7 @@ ${'showFdCircle' in config ? `
             return;
         }
 
-        if (window.location.hostname === 'fetchrr.io') {
+        if (window.location.hostname.includes('fetchrr.io')) {
             try {
                 handleFetchrrPage();
             } catch (e) {
