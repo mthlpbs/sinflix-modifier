@@ -1,15 +1,19 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.27.16
+// @version      26.06.27.17
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
 // @match        https://rentry.co/sin-flix
 // @match        https://text.is/Sinflix
+// @match        https://pst.moe/paste/*
 // @match        https://*.pst.moe/paste/*
+// @match        https://buzzheavier.com/*
 // @match        https://*.buzzheavier.com/*
+// @match        https://mega.nz/*
 // @match        https://*.mega.nz/*
+// @match        https://fetchrr.io/*
 // @match        https://*.fetchrr.io/*
 // @grant        GM_setValue
 // @grant        GM_getValue
