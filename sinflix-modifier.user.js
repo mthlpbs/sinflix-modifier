@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.27.17
+// @version      26.06.27.18
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
@@ -19,6 +19,7 @@
 // @grant        GM_getValue
 // @grant        GM_addStyle
 // @grant        GM_xmlhttpRequest
+// @grant        GM_setClipboard
 // @run-at       document-start
 // @updateURL https://raw.githubusercontent.com/mthlpbs/sinflix-modifier/refs/heads/main/sinflix-modifier.user.js
 // @downloadURL https://raw.githubusercontent.com/mthlpbs/sinflix-modifier/refs/heads/main/sinflix-modifier.user.js
@@ -1402,6 +1403,10 @@
     // --- Helper function to copy text to clipboard ---
     async function copyToClipboard(text) {
         try {
+            if (typeof GM_setClipboard !== 'undefined') {
+                GM_setClipboard(text);
+                return true;
+            }
             if (navigator.clipboard && window.isSecureContext) {
                 await navigator.clipboard.writeText(text);
                 return true;
@@ -1882,13 +1887,15 @@
                 const megaLinks = resolutionMegaLinksMap[res] || [];
                 if (megaLinks.length > 0) {
                     showNotification('Copying links...', 'info');
-                    navigator.clipboard.writeText(megaLinks.join('\n')).then(() => {
-                        showNotification(`${megaLinks.length} link(s) copied!`, 'success');
-                        const oldText = e.target.innerText;
-                        e.target.innerText = 'Copied!';
-                        setTimeout(() => { e.target.innerText = oldText; }, 2000);
-                    }).catch(() => {
-                        showNotification('Failed to copy links!', 'error');
+                    copyToClipboard(megaLinks.join('\n')).then((success) => {
+                        if (success) {
+                            showNotification(`${megaLinks.length} link(s) copied!`, 'success');
+                            const oldText = e.target.innerText;
+                            e.target.innerText = 'Copied!';
+                            setTimeout(() => { e.target.innerText = oldText; }, 2000);
+                        } else {
+                            showNotification('Failed to copy links!', 'error');
+                        }
                     });
                 }
             });
@@ -2301,16 +2308,18 @@
                 if (!directUrl) return;
 
                 if (type === 'copy') {
-                    navigator.clipboard.writeText(directUrl).then(() => {
-                        btnElement.innerHTML = ICON_CHECK;
-                        btnElement.classList.add('bh-copied');
-                        setTimeout(() => {
-                            btnElement.innerHTML = originalHTML;
-                            btnElement.classList.remove('bh-copied');
-                        }, 2000);
-                        showNotification('Direct link copied!', 'success');
-                    }).catch(() => {
-                        showNotification('Failed to copy link!', 'error');
+                    copyToClipboard(directUrl).then((success) => {
+                        if (success) {
+                            btnElement.innerHTML = ICON_CHECK;
+                            btnElement.classList.add('bh-copied');
+                            setTimeout(() => {
+                                btnElement.innerHTML = originalHTML;
+                                btnElement.classList.remove('bh-copied');
+                            }, 2000);
+                            showNotification('Direct link copied!', 'success');
+                        } else {
+                            showNotification('Failed to copy link!', 'error');
+                        }
                     });
                 } else if (type === 'dl') {
                     window.location.assign(directUrl);
@@ -2431,15 +2440,17 @@
                             restoreBtn();
 
                             if (directLinks.length > 0) {
-                                navigator.clipboard.writeText(directLinks.join('\n')).then(() => {
-                                    const srvLabel = serverIndex === 0 ? 'Server 1' : 'Server 2';
-                                    buzzPill.show('success', `${srvLabel} — copied!`, directLinks.length, directLinks.length);
-                                    if (btnElement) {
-                                        btnElement.innerText = '✓ Copied!';
-                                        setTimeout(() => { btnElement.innerText = origText; }, 2200);
+                                copyToClipboard(directLinks.join('\n')).then((success) => {
+                                    if (success) {
+                                        const srvLabel = serverIndex === 0 ? 'Server 1' : 'Server 2';
+                                        buzzPill.show('success', `${srvLabel} — copied!`, directLinks.length, directLinks.length);
+                                        if (btnElement) {
+                                            btnElement.innerText = '✓ Copied!';
+                                            setTimeout(() => { btnElement.innerText = origText; }, 2200);
+                                        }
+                                    } else {
+                                        buzzPill.show('error', 'Clipboard write failed', 0, 0);
                                     }
-                                }).catch(() => {
-                                    buzzPill.show('error', 'Clipboard write failed', 0, 0);
                                 });
                             } else {
                                 buzzPill.show('error', 'No direct links found', 0, 0);
