@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sinflix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.27.14
+// @version      26.06.27.15
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
@@ -3271,9 +3271,12 @@ ${'showFdCircle' in config ? `
         document.body.appendChild(modal);
 
         //  NEW: Set the correct radio button based on saved config
-        document.querySelector(`input[name="linkStyle"][value="${config.linkOpenStyle}"]`).checked = true;
-        document.querySelector(`input[name="chatBoxStyle"][value="${config.chatBoxOpenStyle}"]`).checked = true;
-        document.querySelector(`input[name="downloadLinkStyle"][value="${config.downloadLinkOpenStyle}"]`).checked = true;
+        const linkStyleEl = document.querySelector(`input[name="linkStyle"][value="${config.linkOpenStyle}"]`);
+        if (linkStyleEl) linkStyleEl.checked = true;
+        const chatStyleEl = document.querySelector(`input[name="chatBoxStyle"][value="${config.chatBoxOpenStyle}"]`);
+        if (chatStyleEl) chatStyleEl.checked = true;
+        const dlStyleEl = document.querySelector(`input[name="downloadLinkStyle"][value="${config.downloadLinkOpenStyle}"]`);
+        if (dlStyleEl) dlStyleEl.checked = true;
 
         const saveButton = document.getElementById('kdrama-save-button');
         const closeBtn = document.getElementById('kdrama-settings-close');
@@ -3330,14 +3333,14 @@ ${'showFdCircle' in config ? `
             if (fdEl) GM_setValue('showFdCircle', fdEl.checked);
 
             //  NEW: Save the selected radio button values
-            const selectedStyle = document.querySelector('input[name="linkStyle"]:checked').value;
-            GM_setValue('linkOpenStyle', selectedStyle);
+            const selectedStyleEl = document.querySelector('input[name="linkStyle"]:checked');
+            if (selectedStyleEl) GM_setValue('linkOpenStyle', selectedStyleEl.value);
 
-            const selectedChatBoxStyle = document.querySelector('input[name="chatBoxStyle"]:checked').value;
-            GM_setValue('chatBoxOpenStyle', selectedChatBoxStyle);
+            const selectedChatBoxStyleEl = document.querySelector('input[name="chatBoxStyle"]:checked');
+            if (selectedChatBoxStyleEl) GM_setValue('chatBoxOpenStyle', selectedChatBoxStyleEl.value);
 
-            const selectedDlLinkStyle = document.querySelector('input[name="downloadLinkStyle"]:checked').value;
-            GM_setValue('downloadLinkOpenStyle', selectedDlLinkStyle);
+            const selectedDlLinkStyleEl = document.querySelector('input[name="downloadLinkStyle"]:checked');
+            if (selectedDlLinkStyleEl) GM_setValue('downloadLinkOpenStyle', selectedDlLinkStyleEl.value);
 
             GM_setValue('googleSearchSuffix', document.getElementById('setting-google-suffix').value);
 
