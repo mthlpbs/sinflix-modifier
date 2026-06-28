@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SinFlix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.28
+// @version      26.06.28.01
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
@@ -1428,8 +1428,6 @@
         const toggleInput = wrap.querySelector('#sfx-toggle-back-to-top');
         const toggleBuzzheavier = wrap.querySelector('#sfx-toggle-buzzheavier');
         const toggleBuzzheavierUI = wrap.querySelector('#sfx-toggle-buzzheavier-ui');
-        const toggleBuzzheavierSplit = wrap.querySelector('#sfx-toggle-buzzheavier-split');
-        const toggleBuzzheavierCopyAll = wrap.querySelector('#sfx-toggle-buzzheavier-copy-all');
         const selectDownloadStyle = wrap.querySelector('#sfx-select-download-style');
         const toggleDramaSearch = wrap.querySelector('#sfx-toggle-drama-search');
         const toggleMoveOngoing = wrap.querySelector('#sfx-toggle-move-ongoing');
@@ -1613,27 +1611,6 @@
                 if (typeof bhRunEnhance === 'function') bhRunEnhance();
                 else enhanceBuzzheavierContent();
             }
-        });
-
-        toggleBuzzheavierSplit.checked = false;
-        toggleBuzzheavierSplit.disabled = true;
-        toggleBuzzheavierSplit.addEventListener('change', () => {
-            setSetting('sfx-buzzheavier-split-resolution', toggleBuzzheavierSplit.checked);
-            if (window.location.hostname.includes('buzzheavier.com')) {
-                if (toggleBuzzheavierSplit.checked) {
-                    // Re-run to create split layout
-                    if (typeof bhRunEnhance === 'function') bhRunEnhance();
-                    else enhanceBuzzheavierContent();
-                } else {
-                    // Split turned off: reload to restore original layout
-                    window.location.reload();
-                }
-            }
-        });
-
-        toggleBuzzheavierCopyAll.checked = getSetting('sfx-buzzheavier-copy-all', true);
-        toggleBuzzheavierCopyAll.addEventListener('change', () => {
-            setSetting('sfx-buzzheavier-copy-all', toggleBuzzheavierCopyAll.checked);
         });
 
         selectDownloadStyle.value = getSetting('sfx-download-link-style', 'tab');
@@ -2857,89 +2834,12 @@
         tryResolve();
     }
 
-    function copyAllLinksInContainer(tbody, button) {
-        const FILE_LINK_RE = /^\/[a-zA-Z0-9_-]{4,}(\?|$)/;
-        const isFileAnchor = (a) => {
-            if (!a || !a.href) return false;
-            const path = a.getAttribute('href') || '';
-            if (a.href.includes('buzzheavier.com/') && path.length > 1) return true;
-            return path.startsWith('/') && FILE_LINK_RE.test(path) && !path.startsWith('//');
-        };
-
-        const anchors = Array.from(tbody.querySelectorAll('a[href]')).filter(isFileAnchor);
-        if (anchors.length === 0) {
-            showProgressIsland("No links to copy", "error");
-            return;
-        }
-
-        const urls = anchors.map(a => a.href);
-        let resolvedUrls = [];
-        let currentIndex = 0;
-
-        button.disabled = true;
-        const origHtml = button.innerHTML;
-        button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation: sfx-spin 1s linear infinite; width: 14px; height: 14px; margin-right: 4px;"><path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z"/></svg> Resolving...`;
-
-        showProgressIsland(`Resolving links (0/${urls.length})...`, 'progress');
-
-        function resolveNext() {
-            if (currentIndex >= urls.length) {
-                if (resolvedUrls.length > 0) {
-                    const clipboardText = resolvedUrls.join('\n');
-                    GM_setClipboard(clipboardText, 'text');
-                    showProgressIsland(`Copied ${resolvedUrls.length} links!`, 'success');
-                    button.innerHTML = `<svg viewBox="0 0 24 24" style="width: 14px; height: 14px; margin-right: 4px; fill: #4ade80;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> Copied!`;
-                    setTimeout(() => {
-                        button.disabled = false;
-                        button.innerHTML = origHtml;
-                    }, 2000);
-                } else {
-                    showProgressIsland(`Failed to resolve links`, 'error');
-                    button.disabled = false;
-                    button.innerHTML = origHtml;
-                }
-                return;
-            }
-
-            const pageUrl = urls[currentIndex];
-            showProgressIsland(`Resolving link ${currentIndex + 1}/${urls.length}...`, 'progress');
-
-            let currentSrv = 0;
-            let attempt = 1;
-            const maxAttempts = 4;
-
-            function tryFetch() {
-                if (attempt > maxAttempts) {
-                    currentIndex++;
-                    resolveNext();
-                    return;
-                }
-
-                fetchDirectLink(pageUrl, currentSrv, (directUrl) => {
-                    if (directUrl) {
-                        resolvedUrls.push(directUrl);
-                        currentIndex++;
-                        setTimeout(resolveNext, 300);
-                    } else {
-                        attempt++;
-                        currentSrv = 1 - currentSrv;
-                        setTimeout(tryFetch, 300);
-                    }
-                });
-            }
-
-            tryFetch();
-        }
-
-        resolveNext();
-    }
 
     function enhanceBuzzheavierContent() {
         // ALWAYS add the styling class to body on buzzheavier.com since table styling has no on/off toggle
         document.body.classList.add('sfx-bh-enhanced');
 
         const isEnhance = getSetting('sfx-buzzheavier-ui-enhancements', false);
-        const isSplitEnabled = false; // Temporarily disabled (split quality is currently unavailable)
 
         // Try by ID first (live BuzzHeavier page uses id="tbody"), fallback to first non-sfx tbody
         let tbody = document.getElementById('tbody');
@@ -3015,145 +2915,16 @@
         };
 
         if (isListPage) {
-            const parentTable = tbody.closest('table');
-
-            // If split container already exists, rows were already moved out of #tbody.
-            // Collect unprocessed rows from ALL quality sub-tbodies (for newly loaded rows).
-            const splitContainerExists = !!document.getElementById('sfx-split-container');
-            if (splitContainerExists && isSplitEnabled) {
-                // If UI enhancements toggled off, remove any leftover capsules
-                if (!isEnhance) {
-                    removeCapsules();
-                }
-
-                // Gather any new rows that arrived in #tbody (HTMX may append more)
-                const newRows = Array.from(tbody.children).filter(el => el.tagName === 'TR' && !el.classList.contains('sfx-row-split-processed'));
-                if (newRows.length > 0) {
-                    newRows.forEach(row => {
-                        row.classList.add('sfx-row-split-processed');
-                        const link = Array.from(row.querySelectorAll('a[href]')).find(isFileAnchor);
-                        if (!link) return;
-                        const filename = (link.textContent || link.innerText || '').toLowerCase();
-                        let quality = 'Other';
-                        if (filename.includes('1080p')) quality = '1080p';
-                        else if (filename.includes('720p')) quality = '720p';
-                        else if (filename.includes('540p')) quality = '540p';
-                        const qTbody = document.getElementById(`sfx-tbody-${quality}`);
-                        const qWrapper = document.getElementById(`sfx-quality-wrap-${quality}`);
-                        if (qTbody && qWrapper) {
-                            qTbody.appendChild(row);
-                            qWrapper.style.display = 'block';
-
-                            if (isEnhance) {
-                                addCapsuleToRow(row, link);
-                            }
-                        }
-                    });
-                }
-                return;
-            }
-
             const rows = Array.from(tbody.children).filter(el => el.tagName === 'TR');
-            const hasSin = rows.some(r => {
-                const a = Array.from(r.querySelectorAll('a[href]')).find(isFileAnchor);
-                return a && (a.textContent || a.innerText || '').toLowerCase().includes('sin');
-            });
-
-            if (isSplitEnabled && hasSin && parentTable) {
-                let splitContainer = document.getElementById('sfx-split-container');
-                if (!splitContainer) {
-                    splitContainer = document.createElement('div');
-                    splitContainer.id = 'sfx-split-container';
-                    splitContainer.className = 'sfx-split-container my-6 space-y-8';
-
-                    const qualities = ['1080p', '720p', '540p', 'Other'];
-                    qualities.forEach(q => {
-                        const wrapper = document.createElement('div');
-                        wrapper.id = `sfx-quality-wrap-${q}`;
-                        wrapper.className = 'sfx-quality-wrapper w-full relative shadow overflow-hidden sm:rounded-lg overflow-x-auto my-6 p-4';
-                        wrapper.style.display = 'none';
-                        wrapper.style.border = '1px solid #000000';
-                        wrapper.style.borderRadius = '8px';
-
-                        const showCopyAll = getSetting('sfx-buzzheavier-copy-all', true);
-                        let copyBtnHtml = '';
-                        if (showCopyAll) {
-                            copyBtnHtml = `
-                                <button class="sfx-copy-all-btn sfx-bh-action-btn sfx-copy" style="font-size: 12px; padding: 6px 12px; border-radius: 8px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
-                                    <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; fill: currentColor;"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-                                    Copy All Links
-                                </button>
-                            `;
-                        }
-
-                        wrapper.innerHTML = `
-                            <div class="sfx-quality-header flex justify-between items-center mb-3">
-                                <span class="text-lg font-bold text-white">${q}</span>
-                                ${copyBtnHtml}
-                            </div>
-                            <div class="overflow-x-auto">
-                                <table class="${parentTable.className}" style="margin-top: 0; width: 100%;">
-                                    ${parentTable.querySelector('thead') ? parentTable.querySelector('thead').outerHTML : ''}
-                                    <tbody id="sfx-tbody-${q}"></tbody>
-                                </table>
-                            </div>
-                        `;
-
-                        splitContainer.appendChild(wrapper);
-
-                        const copyAllBtn = wrapper.querySelector('.sfx-copy-all-btn');
-                        if (copyAllBtn) {
-                            copyAllBtn.addEventListener('click', function(e) {
-                                e.preventDefault();
-                                copyAllLinksInContainer(wrapper.querySelector(`#sfx-tbody-${q}`), this);
-                            });
-                        }
-                    });
-
-                    parentTable.parentNode.insertBefore(splitContainer, parentTable);
-                    parentTable.style.display = 'none';
-                }
-
+            if (!isEnhance) {
+                removeCapsules();
+            } else {
                 rows.forEach(row => {
-                    if (row.classList.contains('sfx-row-split-processed')) return;
-                    row.classList.add('sfx-row-split-processed');
-
                     const link = Array.from(row.querySelectorAll('a[href]')).find(isFileAnchor);
-                    if (!link) return;
-
-                    const filename = (link.textContent || link.innerText || '').toLowerCase();
-                    let quality = 'Other';
-                    if (filename.includes('1080p')) quality = '1080p';
-                    else if (filename.includes('720p')) quality = '720p';
-                    else if (filename.includes('540p')) quality = '540p';
-
-                    const qTbody = document.getElementById(`sfx-tbody-${quality}`);
-                    const qWrapper = document.getElementById(`sfx-quality-wrap-${quality}`);
-                    if (qTbody && qWrapper) {
-                        qTbody.appendChild(row);
-                        qWrapper.style.display = 'block';
-
-                        if (isEnhance) {
-                            addCapsuleToRow(row, link);
-                        }
+                    if (link) {
+                        addCapsuleToRow(row, link);
                     }
                 });
-
-                if (!isEnhance) {
-                    removeCapsules();
-                }
-            } else {
-                // If splitting is disabled or has no Sin
-                if (!isEnhance) {
-                    removeCapsules();
-                } else {
-                    rows.forEach(row => {
-                        const link = Array.from(row.querySelectorAll('a[href]')).find(isFileAnchor);
-                        if (link) {
-                            addCapsuleToRow(row, link);
-                        }
-                    });
-                }
             }
         } else if (isSinglePage) {
             const downloadRow = document.querySelector('.download-row');
@@ -3465,22 +3236,6 @@
                             <span class="sfx-switch-label">BuzzHeavier Download UI</span>
                             <label class="sfx-switch">
                                 <input type="checkbox" id="sfx-toggle-buzzheavier-ui">
-                                <span class="sfx-slider"></span>
-                            </label>
-                        </div>
-                        <div class="sfx-settings-row-divider"></div>
-                        <div class="sfx-switch-row" style="opacity: 0.5; pointer-events: none;" title="Temporarily unavailable">
-                            <span class="sfx-switch-label">BuzzHeavier Split Quality (Unavailable)</span>
-                            <label class="sfx-switch">
-                                <input type="checkbox" id="sfx-toggle-buzzheavier-split" disabled>
-                                <span class="sfx-slider"></span>
-                            </label>
-                        </div>
-                        <div class="sfx-settings-row-divider"></div>
-                        <div class="sfx-switch-row">
-                            <span class="sfx-switch-label">BuzzHeavier Copy All Button</span>
-                            <label class="sfx-switch">
-                                <input type="checkbox" id="sfx-toggle-buzzheavier-copy-all">
                                 <span class="sfx-slider"></span>
                             </label>
                         </div>
