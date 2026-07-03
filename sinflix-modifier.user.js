@@ -20,6 +20,7 @@
 // @grant        GM_addStyle
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setClipboard
+// @grant        GM_openInTab
 // @run-at       document-start
 // @updateURL https://raw.githubusercontent.com/mthlpbs/sinflix-modifier/refs/heads/main/sinflix-modifier.user.js
 // @downloadURL https://raw.githubusercontent.com/mthlpbs/sinflix-modifier/refs/heads/main/sinflix-modifier.user.js
@@ -1229,6 +1230,66 @@
                 to   { opacity: 0.65; transform: scale(1.05); }
             }
 
+            /* --- pst.moe Dark Mode --- */
+            body.sfx-pst-dark,
+            body.sfx-pst-dark *:not(#sfx-island-wrap):not(#sfx-island-wrap *):not(.sfx-notification):not(.sfx-notification *) {
+                transition: none !important;
+            }
+            body.sfx-pst-dark {
+                background: #0f0f13 !important;
+                color: #d4d4d8 !important;
+            }
+            body.sfx-pst-dark *:not(#sfx-island-wrap):not(#sfx-island-wrap *):not(.sfx-notification):not(.sfx-notification *) {
+                color: #d4d4d8;
+                border-color: rgba(255,255,255,0.08);
+            }
+            body.sfx-pst-dark pre,
+            body.sfx-pst-dark code,
+            body.sfx-pst-dark textarea {
+                background: #18181b !important;
+                color: #e4e4e7 !important;
+                border-color: rgba(255,255,255,0.1) !important;
+            }
+            
+            /* --- Hyperlink Colors --- */
+            body a {
+                color: #4b5563 !important; /* dark grey in light mode */
+            }
+            body a:visited {
+                color: #555566 !important;
+            }
+            body a:hover {
+                color: #1f2937 !important;
+            }
+            
+            body.sfx-pst-dark a {
+                color: #9ca3af !important; /* medium-dark grey in dark mode to remain readable */
+            }
+            body.sfx-pst-dark a:visited {
+                color: #78716c !important;
+            }
+            body.sfx-pst-dark a:hover {
+                color: #d1d5db !important;
+            }
+            body.sfx-pst-dark header,
+            body.sfx-pst-dark nav,
+            body.sfx-pst-dark footer,
+            body.sfx-pst-dark .header,
+            body.sfx-pst-dark .nav,
+            body.sfx-pst-dark .footer {
+                background: #111115 !important;
+                border-color: rgba(255,255,255,0.06) !important;
+            }
+            body.sfx-pst-dark input,
+            body.sfx-pst-dark select,
+            body.sfx-pst-dark button:not(#sfx-island-wrap button) {
+                background: #27272a !important;
+                color: #e4e4e7 !important;
+                border-color: rgba(255,255,255,0.12) !important;
+            }
+            body.sfx-pst-dark .sinflix-res-header {
+                color: #a3e635 !important;
+            }
         `;
     }
 
@@ -1437,6 +1498,7 @@
         const selectDramaStyle = wrap.querySelector('#sfx-select-drama-style');
         const selectFileDitchStyle = wrap.querySelector('#sfx-select-fileditch-style');
         const inputGoogleSuffix = wrap.querySelector('#sfx-input-google-suffix');
+        const togglePstDark = wrap.querySelector('#sfx-toggle-pst-dark');
         const clearBtn = wrap.querySelector('#sfx-island-search-clear');
 
         let isFocused = false;
@@ -1681,6 +1743,23 @@
         inputGoogleSuffix.addEventListener('input', () => {
             setSetting('sfx-google-search-suffix', inputGoogleSuffix.value.trim());
         });
+
+        if (togglePstDark) {
+            togglePstDark.checked = getSetting('sfx-pst-dark-mode', false);
+            togglePstDark.addEventListener('change', () => {
+                const enabled = togglePstDark.checked;
+                setSetting('sfx-pst-dark-mode', enabled);
+                applyPstDarkMode(enabled);
+            });
+        }
+    }
+
+    function applyPstDarkMode(enabled) {
+        if (enabled) {
+            document.body.classList.add('sfx-pst-dark');
+        } else {
+            document.body.classList.remove('sfx-pst-dark');
+        }
     }
 
     function reorderSections() {
@@ -2124,10 +2203,10 @@
                 if (dlStyle === 'popup') {
                     link.addEventListener('click', function(e) {
                         e.preventDefault();
-                        const pw = 950, ph = 700, pl = Math.round((screen.width - pw) / 2), pt = Math.round((screen.height - ph) / 2);
-                        window.open(this.href, '_blank', `width=${pw},height=${ph},left=${pl},top=${pt},menubar=no,toolbar=no,status=no,location=yes`);
+                        e.stopPropagation();
+                        sfxOpenPopup(this.href);
                     });
-                    link.target = '_blank';
+                    link.removeAttribute('target');
                 } else {
                     link.target = '_blank';
                 }
@@ -2141,6 +2220,18 @@
         }
 
         processBatch();
+    }
+
+    function sfxOpenPopup(url) {
+        const pw = 950;
+        const ph = 700;
+        const pl = Math.round((screen.width - pw) / 2);
+        const pt = Math.round((screen.height - ph) / 2);
+        const name = "sfx_popup_" + Math.random().toString(36).substring(2, 9);
+        const w = window.open(url, name, `popup=yes,width=${pw},height=${ph},left=${pl},top=${pt},menubar=no,toolbar=no,status=no,location=yes,resizable=yes,scrollbars=yes`);
+        if (!w) {
+            showNotification('Popup blocked! Allow popups for this site.', 'error', 6000);
+        }
     }
 
     function showNotification(message, type = 'info', duration = 3000) {
@@ -2418,11 +2509,13 @@
                     if (pstDlStyle === 'popup') {
                         anchor.addEventListener('click', function(e) {
                             e.preventDefault();
-                            const pw = 950, ph = 700, pl = Math.round((screen.width - pw) / 2), pt = Math.round((screen.height - ph) / 2);
-                            window.open(this.href, '_blank', `width=${pw},height=${ph},left=${pl},top=${pt},menubar=no,toolbar=no,status=no,location=yes`);
+                            e.stopPropagation();
+                            sfxOpenPopup(this.href);
                         });
+                        anchor.removeAttribute('target');
+                    } else {
+                        anchor.target = '_blank';
                     }
-                    anchor.target = '_blank';
                     anchor.rel = 'noopener noreferrer';
                     anchor.textContent = rawUrl;
                     fragment.appendChild(anchor);
@@ -3092,7 +3185,11 @@
 
 
         if (host.includes('pst.moe')) {
-            try { enhancePstMoeContent(); } catch(e) { console.error('SinFlixModifier error on pst.moe:', e); }
+            try {
+                enhancePstMoeContent();
+                // Apply dark mode on load if enabled
+                if (getSetting('sfx-pst-dark-mode', false)) applyPstDarkMode(true);
+            } catch(e) { console.error('SinFlixModifier error on pst.moe:', e); }
             return;
         }
 
@@ -3263,6 +3360,18 @@
                                 <option value="popup">Popup Window</option>
                                 <option value="tab">New Tab</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <!-- SECTION: PST.MOE OPTIONS -->
+                    <div class="sfx-settings-section-title">pst.moe Options</div>
+                    <div class="sfx-settings-group">
+                        <div class="sfx-switch-row">
+                            <span class="sfx-switch-label">Dark Background</span>
+                            <label class="sfx-switch">
+                                <input type="checkbox" id="sfx-toggle-pst-dark">
+                                <span class="sfx-slider"></span>
+                            </label>
                         </div>
                     </div>
                 </div>
