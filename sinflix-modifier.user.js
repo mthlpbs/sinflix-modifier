@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         SinFlix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.06.28.02
-// @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
+// @version      26.07.12.01
+// @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On BuzzHeavier folder pages: auto-splits episodes by quality (1080p/720p/540p etc.) into separate tables sorted highest-to-lowest. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
 // @match        https://rentry.co/sin-flix
@@ -69,6 +69,9 @@
                 --sfx-collapsed-padding: 0;
                 --sfx-collapsed-justify: center;
             }
+            #sfx-island-wrap.sfx-collapsed #sfx-island-label {
+                display: none !important;
+            }
         }
 
         /* --- iOS 27 Dynamic Island Capsule --- */
@@ -78,20 +81,20 @@
             left: 50%;
             transform: translateX(-50%) translateZ(0);
             z-index: 10000;
-            
+
             /* Sizing & Shape */
             width: min(var(--sfx-island-full-width), calc(100vw - 32px));
             height: 44px;
             border-radius: 22px;
             padding: 0 16px;
-            
+
             /* Style */
             background: rgba(15, 15, 20, 0.85);
             border: 1px solid rgba(255, 255, 255, 0.12);
             box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 0, 0, 0.2);
             backdrop-filter: blur(24px) saturate(180%);
             -webkit-backdrop-filter: blur(24px) saturate(180%);
-            
+
             /* Layout */
             display: flex;
             align-items: center;
@@ -99,12 +102,12 @@
             overflow: hidden;
             cursor: pointer;
             user-select: none;
-            
+
             /* Performance & Animation */
             will-change: transform, width, height, border-radius, padding;
-            transition: 
-                width 0.45s cubic-bezier(0.25, 1, 0.4, 1), 
-                height 0.45s cubic-bezier(0.25, 1, 0.4, 1), 
+            transition:
+                width 0.45s cubic-bezier(0.25, 1, 0.4, 1),
+                height 0.45s cubic-bezier(0.25, 1, 0.4, 1),
                 border-radius 0.45s cubic-bezier(0.25, 1, 0.4, 1),
                 padding 0.45s cubic-bezier(0.25, 1, 0.4, 1),
                 background 0.3s ease,
@@ -201,11 +204,11 @@
             flex-shrink: 0;
             transition: color 0.3s ease;
         }
-        
+
         #sfx-island-wrap:hover #sfx-island-search-icon {
             color: #ffffff;
         }
-        
+
         #sfx-island-search-icon svg {
             width: 100%;
             height: 100%;
@@ -252,10 +255,7 @@
         }
 
         #sfx-island-wrap.sfx-collapsed #sfx-island-input {
-            opacity: 0;
-            pointer-events: none;
-            width: 0;
-            flex: none;
+            display: none !important;
         }
 
         /* Match Counter */
@@ -270,8 +270,7 @@
         }
 
         #sfx-island-wrap.sfx-collapsed #sfx-island-count {
-            opacity: 0;
-            pointer-events: none;
+            display: none !important;
         }
 
         /* Prev / Next Nav Buttons */
@@ -305,8 +304,7 @@
         }
 
         #sfx-island-wrap.sfx-collapsed .sfx-island-nav {
-            opacity: 0;
-            pointer-events: none;
+            display: none !important;
         }
 
         .sfx-island-nav svg {
@@ -329,8 +327,7 @@
         }
 
         #sfx-island-wrap.sfx-collapsed .sfx-island-divider {
-            opacity: 0;
-            pointer-events: none;
+            display: none !important;
         }
 
         /* Action Buttons */
@@ -359,8 +356,7 @@
         }
 
         #sfx-island-wrap.sfx-collapsed .sfx-island-action {
-            opacity: 0;
-            pointer-events: none;
+            display: none !important;
         }
 
         .sfx-island-action svg {
@@ -397,20 +393,20 @@
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
             backdrop-filter: blur(20px) saturate(180%);
             -webkit-backdrop-filter: blur(20px) saturate(180%);
-            
+
             display: flex;
             align-items: center;
             justify-content: center;
             color: rgba(255, 255, 255, 0.65);
             cursor: pointer;
             z-index: 9999;
-            
+
             /* Animation states */
             opacity: 0;
             transform: translateY(15px) translateZ(0);
             pointer-events: none;
             will-change: opacity, transform;
-            transition: 
+            transition:
                 opacity 0.3s cubic-bezier(0.25, 1, 0.5, 1),
                 transform 0.3s cubic-bezier(0.25, 1, 0.5, 1),
                 background-color 0.2s,
@@ -556,8 +552,7 @@
         }
 
         #sfx-island-wrap.sfx-collapsed #sfx-island-search-clear {
-            opacity: 0;
-            pointer-events: none;
+            display: none !important;
         }
 
         .sfx-settings-scroll-container {
@@ -966,6 +961,228 @@
             background: rgba(255, 255, 255, 0.12) !important;
         }
 
+        /* --- BuzzHeavier Quality Split Tables --- */
+        .sfx-quality-section {
+            margin-bottom: 24px;
+        }
+        .sfx-quality-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 24px 0 12px 0;
+            padding: 8px 12px 8px 16px;
+            background: rgba(255, 255, 255, 0.03) !important;
+            border: 1px solid rgba(255, 255, 255, 0.06) !important;
+            border-radius: 16px;
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            box-sizing: border-box;
+        }
+        .sfx-quality-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: #fff;
+            background: linear-gradient(135deg, rgba(99,102,241,0.85), rgba(139,92,246,0.85));
+            border: 1px solid rgba(255,255,255,0.12);
+            box-shadow: 0 2px 8px rgba(99,102,241,0.25);
+        }
+        .sfx-quality-badge svg {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+            opacity: 0.9;
+        }
+        .sfx-quality-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .sfx-quality-dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.25);
+            display: inline-block;
+        }
+        .sfx-quality-meta {
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.85);
+        }
+        .sfx-quality-size {
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.55);
+        }
+        .sfx-bh-copy-all-btn,
+        .sfx-bh-select-custom-btn,
+        .sfx-bh-copy-dropdown-trigger {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.08) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: #ffffff !important;
+            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+            outline: none;
+        }
+        .sfx-bh-copy-all-btn:hover,
+        .sfx-bh-select-custom-btn:hover,
+        .sfx-bh-copy-dropdown-trigger:hover {
+            background: rgba(255, 255, 255, 0.15) !important;
+            border-color: rgba(255, 255, 255, 0.18) !important;
+            transform: translateY(-0.5px) scale(1.02);
+        }
+        .sfx-bh-copy-all-btn:active,
+        .sfx-bh-select-custom-btn:active,
+        .sfx-bh-copy-dropdown-trigger:active {
+            transform: scale(0.98);
+        }
+        .sfx-bh-copy-all-btn svg,
+        .sfx-bh-select-custom-btn svg,
+        .sfx-bh-copy-dropdown-trigger svg {
+            width: 12px;
+            height: 12px;
+            fill: currentColor;
+        }
+
+        /* --- Dropdown Menu --- */
+        .sfx-copy-dropdown-container {
+            position: relative;
+            display: inline-block;
+        }
+        .sfx-dropdown-arrow {
+            width: 10px !important;
+            height: 10px !important;
+            margin-left: 2px;
+            fill: currentColor;
+            opacity: 0.8;
+            transition: transform 0.2s ease;
+        }
+        .sfx-copy-dropdown-container.sfx-active .sfx-dropdown-arrow {
+            transform: rotate(180deg);
+        }
+        .sfx-copy-dropdown-menu {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            background: rgba(25, 25, 30, 0.95) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            padding: 4px;
+            min-width: 150px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            opacity: 0;
+            transform: translateY(-8px) scale(0.95);
+            pointer-events: none;
+            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        .sfx-copy-dropdown-menu.sfx-show {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+        }
+        .sfx-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: transparent !important;
+            border: none !important;
+            border-radius: 8px;
+            color: rgba(255, 255, 255, 0.9) !important;
+            font-size: 12px;
+            font-weight: 500;
+            text-align: left;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.15s ease;
+        }
+        .sfx-dropdown-item:hover {
+            background: rgba(255, 255, 255, 0.08) !important;
+        }
+        .sfx-dropdown-item svg {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+            opacity: 0.8;
+        }
+        .sfx-dropdown-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.08);
+            margin: 2px 4px;
+        }
+        .sfx-quality-section table.fs {
+            margin-top: 0;
+        }
+
+        /* --- pst.moe Enhanced Layout --- */
+        .sfx-pst-section {
+            margin-bottom: 24px;
+            background: rgba(255, 255, 255, 0.02) !important;
+            border: 1px solid rgba(255, 255, 255, 0.05) !important;
+            border-radius: 16px;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+        .sfx-pst-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            padding: 8px 12px 8px 16px;
+            background: rgba(255, 255, 255, 0.03) !important;
+            border: 1px solid rgba(255, 255, 255, 0.06) !important;
+            border-radius: 16px;
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            box-sizing: border-box;
+        }
+        .sfx-pst-row {
+            display: flex;
+            align-items: center;
+            padding: 6px 8px;
+            border-radius: 8px;
+            transition: background 0.2s ease;
+            gap: 10px;
+        }
+        .sfx-pst-row:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+        .sfx-pst-checkbox-col {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            flex-shrink: 0;
+        }
+        .sfx-pst-row-content {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            color: rgba(255, 255, 255, 0.85);
+            word-break: break-all;
+        }
+
         @keyframes sfx-spin {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
@@ -1012,7 +1229,7 @@
                 max-width: 100% !important;
                 box-sizing: border-box !important;
             }
-            
+
             .sfx-day-header-wrap {
                 display: flex;
                 align-items: center;
@@ -1133,11 +1350,11 @@
     if (window.location.hostname.includes('buzzheavier.com')) {
         css += `
             /* --- BuzzHeavier Site Adjustments --- */
-            table, 
-            thead, 
-            tbody, 
-            tr, 
-            th, 
+            table,
+            thead,
+            tbody,
+            tr,
+            th,
             td {
                 border-color: #000000 !important;
                 background: transparent !important;
@@ -1232,25 +1449,30 @@
 
             /* --- pst.moe Dark Mode --- */
             body.sfx-pst-dark,
-            body.sfx-pst-dark *:not(#sfx-island-wrap):not(#sfx-island-wrap *):not(.sfx-notification):not(.sfx-notification *) {
+            body.sfx-pst-dark *:not(#sfx-island-wrap):not(#sfx-island-wrap *):not(.sfx-notification):not(.sfx-notification *):not([class^="sfx-"]):not([class*=" sfx-"]):not([id^="sfx-"]):not([class^="sinflix-"]):not([class*=" sinflix-"]) {
                 transition: none !important;
             }
             body.sfx-pst-dark {
                 background: #0f0f13 !important;
                 color: #d4d4d8 !important;
             }
-            body.sfx-pst-dark *:not(#sfx-island-wrap):not(#sfx-island-wrap *):not(.sfx-notification):not(.sfx-notification *) {
+            body.sfx-pst-dark *:not(#sfx-island-wrap):not(#sfx-island-wrap *):not(.sfx-notification):not(.sfx-notification *):not([class^="sfx-"]):not([class*=" sfx-"]):not([id^="sfx-"]):not([class^="sinflix-"]):not([class*=" sinflix-"]) {
                 color: #d4d4d8;
                 border-color: rgba(255,255,255,0.08);
             }
-            body.sfx-pst-dark pre,
+            body.sfx-pst-dark pre:not(.sfx-pst-processed),
             body.sfx-pst-dark code,
             body.sfx-pst-dark textarea {
                 background: #18181b !important;
                 color: #e4e4e7 !important;
                 border-color: rgba(255,255,255,0.1) !important;
             }
-            
+            body.sfx-pst-dark pre.sfx-pst-processed {
+                background: transparent !important;
+                border: none !important;
+                padding: 0 !important;
+            }
+
             /* --- Hyperlink Colors --- */
             body a {
                 color: #4b5563 !important; /* dark grey in light mode */
@@ -1261,7 +1483,7 @@
             body a:hover {
                 color: #1f2937 !important;
             }
-            
+
             body.sfx-pst-dark a {
                 color: #9ca3af !important; /* medium-dark grey in dark mode to remain readable */
             }
@@ -1280,9 +1502,9 @@
                 background: #111115 !important;
                 border-color: rgba(255,255,255,0.06) !important;
             }
-            body.sfx-pst-dark input,
-            body.sfx-pst-dark select,
-            body.sfx-pst-dark button:not(#sfx-island-wrap button) {
+            body.sfx-pst-dark input:not([class^="sfx-"]):not([class*=" sfx-"]):not([id^="sfx-"]),
+            body.sfx-pst-dark select:not([class^="sfx-"]):not([class*=" sfx-"]):not([id^="sfx-"]),
+            body.sfx-pst-dark button:not(#sfx-island-wrap button):not([class^="sfx-"]):not([class*=" sfx-"]):not([id^="sfx-"]) {
                 background: #27272a !important;
                 color: #e4e4e7 !important;
                 border-color: rgba(255,255,255,0.12) !important;
@@ -1375,7 +1597,7 @@
         const prevBtn = document.getElementById('sfx-island-prev');
         const nextBtn = document.getElementById('sfx-island-next');
         if (!countEl) return;
-        
+
         if (total > 0) {
             countEl.textContent = `${current}/${total}`;
             prevBtn.disabled = false;
@@ -1411,16 +1633,16 @@
 
          const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
          matches = [];
-         
+
          textNodes.forEach(node => {
              const val = node.nodeValue;
              if (regex.test(val)) {
                  const span = document.createElement('span');
                  span.innerHTML = val.replace(regex, '<span class="sfx-search-highlight">$1</span>');
-                 
+
                  const highlights = Array.from(span.querySelectorAll('.sfx-search-highlight'));
                  node.parentNode.replaceChild(span, node);
-                 
+
                  const parent = span.parentNode;
                  while (span.firstChild) {
                      parent.insertBefore(span.firstChild, span);
@@ -1489,6 +1711,9 @@
         const toggleInput = wrap.querySelector('#sfx-toggle-back-to-top');
         const toggleBuzzheavier = wrap.querySelector('#sfx-toggle-buzzheavier');
         const toggleBuzzheavierUI = wrap.querySelector('#sfx-toggle-buzzheavier-ui');
+        const toggleBuzzheavierSplit = wrap.querySelector('#sfx-toggle-buzzheavier-split');
+        const toggleBuzzheavierCopyAll = wrap.querySelector('#sfx-toggle-buzzheavier-copy-all');
+        const toggleBuzzheavierCustomSelect = wrap.querySelector('#sfx-toggle-buzzheavier-custom-select');
         const selectDownloadStyle = wrap.querySelector('#sfx-select-download-style');
         const toggleDramaSearch = wrap.querySelector('#sfx-toggle-drama-search');
         const toggleMoveOngoing = wrap.querySelector('#sfx-toggle-move-ongoing');
@@ -1499,6 +1724,7 @@
         const selectFileDitchStyle = wrap.querySelector('#sfx-select-fileditch-style');
         const inputGoogleSuffix = wrap.querySelector('#sfx-input-google-suffix');
         const togglePstDark = wrap.querySelector('#sfx-toggle-pst-dark');
+        const togglePstCopyOptions = wrap.querySelector('#sfx-toggle-pst-copy-options');
         const clearBtn = wrap.querySelector('#sfx-island-search-clear');
 
         let isFocused = false;
@@ -1675,6 +1901,39 @@
             }
         });
 
+        if (toggleBuzzheavierSplit) {
+            toggleBuzzheavierSplit.checked = getSetting('sfx-bh-quality-split', true);
+            toggleBuzzheavierSplit.addEventListener('change', () => {
+                setSetting('sfx-bh-quality-split', toggleBuzzheavierSplit.checked);
+                if (window.location.hostname.includes('buzzheavier.com')) {
+                    if (typeof bhRunEnhance === 'function') bhRunEnhance();
+                    else enhanceBuzzheavierContent();
+                }
+            });
+        }
+
+        if (toggleBuzzheavierCopyAll) {
+            toggleBuzzheavierCopyAll.checked = getSetting('sfx-bh-copy-all', true);
+            toggleBuzzheavierCopyAll.addEventListener('change', () => {
+                setSetting('sfx-bh-copy-all', toggleBuzzheavierCopyAll.checked);
+                if (window.location.hostname.includes('buzzheavier.com')) {
+                    if (typeof bhRunEnhance === 'function') bhRunEnhance();
+                    else enhanceBuzzheavierContent();
+                }
+            });
+        }
+
+        if (toggleBuzzheavierCustomSelect) {
+            toggleBuzzheavierCustomSelect.checked = getSetting('sfx-bh-custom-select', true);
+            toggleBuzzheavierCustomSelect.addEventListener('change', () => {
+                setSetting('sfx-bh-custom-select', toggleBuzzheavierCustomSelect.checked);
+                if (window.location.hostname.includes('buzzheavier.com')) {
+                    if (typeof bhRunEnhance === 'function') bhRunEnhance();
+                    else enhanceBuzzheavierContent();
+                }
+            });
+        }
+
         selectDownloadStyle.value = getSetting('sfx-download-link-style', 'tab');
         selectDownloadStyle.addEventListener('change', () => {
             setSetting('sfx-download-link-style', selectDownloadStyle.value);
@@ -1747,9 +2006,18 @@
         if (togglePstDark) {
             togglePstDark.checked = getSetting('sfx-pst-dark-mode', false);
             togglePstDark.addEventListener('change', () => {
-                const enabled = togglePstDark.checked;
-                setSetting('sfx-pst-dark-mode', enabled);
-                applyPstDarkMode(enabled);
+                setSetting('sfx-pst-dark-mode', togglePstDark.checked);
+                applyPstDarkMode(togglePstDark.checked);
+            });
+        }
+
+        if (togglePstCopyOptions) {
+            togglePstCopyOptions.checked = getSetting('sfx-pst-copy-options', true);
+            togglePstCopyOptions.addEventListener('change', () => {
+                setSetting('sfx-pst-copy-options', togglePstCopyOptions.checked);
+                if (window.location.hostname.includes('pst.moe')) {
+                    window.location.reload();
+                }
             });
         }
     }
@@ -1850,7 +2118,7 @@
             const text = p.textContent.trim();
             if (dayRegex.test(text)) {
                 bq.classList.add('sfx-day-header');
-                
+
                 let titleText = text;
                 let noteText = '';
                 const openParenIdx = text.indexOf('(');
@@ -2019,7 +2287,7 @@
             const chip = document.createElement('button');
             chip.className = 'sfx-filter-chip';
             if (range.key === 'all') chip.classList.add('sfx-active');
-            
+
             const labelSpan = document.createElement('span');
             labelSpan.textContent = range.label;
             chip.appendChild(labelSpan);
@@ -2031,7 +2299,7 @@
                 countSpan.textContent = countVal;
                 chip.appendChild(countSpan);
             }
-            
+
             chip.dataset.key = range.key;
 
             chip.addEventListener('click', () => {
@@ -2050,7 +2318,7 @@
         if (!root) return;
         const convertBuzz = getSetting('sfx-buzzheavier-convert', true);
         const searchEnabled = getSetting('sfx-drama-search-enabled', true);
-        
+
         if (!convertBuzz && !searchEnabled) return;
 
         const buzzRegex = /\b(?![a-zA-Z]{12}\b)([a-zA-Z0-9]{12})\b/g;
@@ -2071,7 +2339,7 @@
             if (!searchEnabled) return null;
             const cleanText = line.trim();
             if (cleanText.length < 10) return null;
-            
+
             const lower = cleanText.toLowerCase();
             if (!cleanText.includes('[') && !cleanText.includes('(') && !cleanText.includes('-') && !lower.includes('soon')) {
                 return null;
@@ -2461,106 +2729,412 @@
         pill.addEventListener('click', () => {
             openMegaInFetchrr(window.location.href);
         });
-    }
-
-    function enhancePstMoeContent() {
+        function enhancePstMoeContent() {
         const preElement = document.querySelector('pre');
         if (!preElement) return false;
 
         if (preElement.dataset.sinflixProcessed) return true;
         preElement.dataset.sinflixProcessed = 'true';
 
-        let currentResolution = null;
-        const linkRegex = /(https?:\/\/[^\s]+)/g;
+        const isEnhancedEnabled = getSetting('sfx-pst-copy-options', true);
+        if (isEnhancedEnabled) {
+            preElement.classList.add('sfx-pst-processed');
+            const selectCustomForPstGroup = (sectionEl, sectionLines) => {
+                cancelActiveSelection();
 
-        function processTextContent(text) {
-            const fragment = document.createDocumentFragment();
+                const rows = sectionEl.querySelectorAll('.sfx-pst-row');
+                rows.forEach(row => {
+                    if (!row.querySelector('.sfx-pst-checkbox-col')) {
+                        const cbCol = document.createElement('div');
+                        cbCol.className = 'sfx-pst-checkbox-col';
+                        cbCol.innerHTML = `<input type="checkbox" class="sfx-pst-row-checkbox" style="cursor: pointer; width: 16px; height: 16px; border-radius: 4px;">`;
+                        row.insertBefore(cbCol, row.firstChild);
+
+                        cbCol.querySelector('.sfx-pst-row-checkbox').addEventListener('change', () => {
+                            updatePstSelectionCount();
+                        });
+                    }
+                });
+
+                const removePstCheckboxes = () => {
+                    sectionEl.querySelectorAll('.sfx-pst-checkbox-col').forEach(el => el.remove());
+                };
+
+                const handlePstCancel = () => {
+                    removePstCheckboxes();
+                    const island = document.getElementById('sfx-island-wrap');
+                    if (island) {
+                        const actions = island.querySelector('.sfx-island-selection-actions');
+                        if (actions) actions.remove();
+                        hideProgressIsland(island);
+                    }
+                };
+
+                const handlePstConfirm = () => {
+                    const selectedCbs = Array.from(sectionEl.querySelectorAll('.sfx-pst-row-checkbox')).filter(cb => cb.checked);
+                    if (selectedCbs.length === 0) {
+                        showProgressIsland("No items selected", "error");
+                        removePstCheckboxes();
+                        return;
+                    }
+
+                    removePstCheckboxes();
+
+                    const fileUrls = [];
+                    selectedCbs.forEach(cb => {
+                        const row = cb.closest('.sfx-pst-row');
+                        if (row) {
+                            row.querySelectorAll('a[href]').forEach(a => {
+                                fileUrls.push(a.href);
+                            });
+                        }
+                    });
+
+                    if (fileUrls.length > 0) {
+                        GM_setClipboard(fileUrls.join('\n'), 'text');
+                        showProgressIsland(`Copied ${fileUrls.length} link${fileUrls.length !== 1 ? 's' : ''} successfully!`, 'success');
+                    } else {
+                        showProgressIsland("No links resolved", "error");
+                    }
+                };
+
+                const updatePstSelectionCount = () => {
+                    const count = Array.from(sectionEl.querySelectorAll('.sfx-pst-row-checkbox')).filter(cb => cb.checked).length;
+                    showProgressIsland(`Selected: ${count} item${count !== 1 ? 's' : ''}`, 'selection', handlePstConfirm, handlePstCancel);
+                };
+
+                updatePstSelectionCount();
+            };
+
+            const text = preElement.textContent;
             const lines = text.split('\n');
 
-            lines.forEach((line, lineIdx) => {
-                const resMatch = line.trim().match(/^---\s+(.*?)\s+---/);
-                if (resMatch) {
-                    currentResolution = resMatch[1];
-                    const resSpan = document.createElement('span');
-                    resSpan.className = 'sinflix-res-header';
+            const headerRegex = /^---\s+(.*?)(?:\s+\[(.*?)\])?\s+---/;
+            const linkRegex = /(https?:\/\/[^\s]+)/g;
 
-                    const textNode = document.createTextNode(line.trim() + ' ');
-                    resSpan.appendChild(textNode);
+            const sections = [];
+            let currentSection = {
+                title: 'General',
+                label: 'General',
+                sizeText: '',
+                lines: []
+            };
 
-                    fragment.appendChild(resSpan);
-                    fragment.appendChild(document.createTextNode('\n'));
-                    return;
-                }
-
-                linkRegex.lastIndex = 0;
-                let lastIndex = 0;
-                let match;
-                while ((match = linkRegex.exec(line)) !== null) {
-                    if (match.index > lastIndex) {
-                        fragment.appendChild(document.createTextNode(line.slice(lastIndex, match.index)));
+            lines.forEach(line => {
+                const trimmed = line.trim();
+                const match = trimmed.match(headerRegex);
+                if (match) {
+                    if (currentSection.lines.length > 0 || currentSection.label !== 'General') {
+                        sections.push(currentSection);
                     }
-
-                    const rawUrl = match[0];
-                    const cleanUrl = rawUrl.replace(/"/g, '%22');
-
-                    const anchor = document.createElement('a');
-                    anchor.href = cleanUrl;
-                    const pstDlStyle = getSetting('sfx-download-link-style', 'tab');
-                    if (pstDlStyle === 'popup') {
-                        anchor.addEventListener('click', function(e) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            sfxOpenPopup(this.href);
-                        });
-                        anchor.removeAttribute('target');
-                    } else {
-                        anchor.target = '_blank';
-                    }
-                    anchor.rel = 'noopener noreferrer';
-                    anchor.textContent = rawUrl;
-                    fragment.appendChild(anchor);
-
-                    if (getSetting('sfx-mega-fetchrr-enabled', true) && (cleanUrl.includes('mega.nz/file/') || cleanUrl.includes('mega.nz/folder/'))) {
-                        const circle = document.createElement('span');
-                        circle.className = 'sinflix-mega-fetchrr-dot';
-                        circle.title = 'Open in Fetchrr.io — direct mirror download';
-                        circle.dataset.megaUrl = cleanUrl;
-                        fragment.appendChild(circle);
-                    }
-
-                    if (cleanUrl.includes('fileditchfiles.me')) {
-                        const dlCircle = document.createElement('span');
-                        dlCircle.className = 'sinflix-fd-dl-circle';
-                        dlCircle.title = '\u2b07 Download via FileDitch (auto-clicks download & closes)';
-                        dlCircle.dataset.fdUrl = cleanUrl;
-                        fragment.appendChild(dlCircle);
-                    }
-
-                    lastIndex = match.index + match[0].length;
-                }
-
-                if (lastIndex < line.length) {
-                    fragment.appendChild(document.createTextNode(line.slice(lastIndex)));
-                }
-
-                if (lineIdx < lines.length - 1) {
-                    fragment.appendChild(document.createTextNode('\n'));
+                    currentSection = {
+                        title: trimmed,
+                        label: match[1].trim(),
+                        sizeText: match[2] ? match[2].trim() : '',
+                        lines: []
+                    };
+                } else {
+                    currentSection.lines.push(line);
                 }
             });
+            if (currentSection.lines.length > 0 || currentSection.label !== 'General') {
+                sections.push(currentSection);
+            }
 
-            return fragment;
-        }
+            preElement.innerHTML = '';
+            preElement.style.background = 'transparent';
+            preElement.style.border = 'none';
+            preElement.style.padding = '0';
 
-        const childNodes = Array.from(preElement.childNodes);
-        for (const node of childNodes) {
-            if (node.nodeType === Node.TEXT_NODE) {
-                const fragment = processTextContent(node.textContent);
-                preElement.replaceChild(fragment, node);
+            sections.forEach(section => {
+                const sectionEl = document.createElement('div');
+                sectionEl.className = 'sfx-pst-section';
+
+                const sectionUrls = [];
+                section.lines.forEach(line => {
+                    let match;
+                    linkRegex.lastIndex = 0;
+                    while ((match = linkRegex.exec(line)) !== null) {
+                        sectionUrls.push(match[0]);
+                    }
+                });
+
+                const header = document.createElement('div');
+                header.className = 'sfx-pst-header';
+
+                let copyBtnHtml = '';
+                const allAreMega = sectionUrls.length > 0 && sectionUrls.every(url => {
+                    try {
+                        const parsed = new URL(url);
+                        return parsed.hostname.includes('mega.nz');
+                    } catch(e) {
+                        return url.includes('mega.nz');
+                    }
+                });
+
+                if (allAreMega) {
+                    copyBtnHtml = `
+                        <div class="sfx-copy-dropdown-container">
+                            <button class="sfx-bh-copy-dropdown-trigger" title="Copy options">
+                                <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                                <span>Copy</span>
+                                <svg viewBox="0 0 24 24" class="sfx-dropdown-arrow"><path d="M7 10l5 5 5-5z"/></svg>
+                            </button>
+                            <div class="sfx-copy-dropdown-menu">
+                                <button class="sfx-dropdown-item sfx-copy-all-item">
+                                    <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                                    <span>Copy All Links</span>
+                                </button>
+                                <div class="sfx-dropdown-divider"></div>
+                                <button class="sfx-dropdown-item sfx-custom-select-item">
+                                    <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                                    <span>Select Custom</span>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const epCountText = sectionUrls.length > 0 ? `${sectionUrls.length} Link${sectionUrls.length !== 1 ? 's' : ''}` : '';
+                const sizeBadgeHtml = section.sizeText ? `
+                    <span class="sfx-quality-dot"></span>
+                    <span class="sfx-quality-size">${section.sizeText}</span>
+                ` : '';
+
+                header.innerHTML = `
+                    <div class="sfx-quality-info">
+                        <span class="sfx-quality-badge">
+                            <svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM5 15h14v3H5z"/></svg>
+                            ${section.label}
+                        </span>
+                        ${epCountText ? `<span class="sfx-quality-meta">${epCountText}</span>` : ''}
+                        ${sizeBadgeHtml}
+                    </div>
+                    <div class="sfx-quality-actions" style="display: flex; align-items: center; gap: 8px;">
+                        ${copyBtnHtml}
+                    </div>
+                `;
+                sectionEl.appendChild(header);
+
+                if (allAreMega) {
+                    const container = header.querySelector('.sfx-copy-dropdown-container');
+                    const trigger = container.querySelector('.sfx-bh-copy-dropdown-trigger');
+                    const menu = container.querySelector('.sfx-copy-dropdown-menu');
+
+                    trigger.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        const isShown = menu.classList.contains('sfx-show');
+                        document.querySelectorAll('.sfx-copy-dropdown-menu.sfx-show').forEach(m => {
+                            m.classList.remove('sfx-show');
+                            m.parentElement.classList.remove('sfx-active');
+                        });
+
+                        if (!isShown) {
+                            menu.classList.add('sfx-show');
+                            container.classList.add('sfx-active');
+                        }
+                    });
+
+                    menu.querySelector('.sfx-copy-all-item').addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        menu.classList.remove('sfx-show');
+                        container.classList.remove('sfx-active');
+
+                        if (sectionUrls.length > 0) {
+                            GM_setClipboard(sectionUrls.join('\n'), 'text');
+                            showProgressIsland(`Copied ${sectionUrls.length} link${sectionUrls.length !== 1 ? 's' : ''} successfully!`, 'success');
+                        }
+                    });
+
+                    menu.querySelector('.sfx-custom-select-item').addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        menu.classList.remove('sfx-show');
+                        container.classList.remove('sfx-active');
+                        selectCustomForPstGroup(sectionEl, section.lines);
+                    });
+                }
+
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'sfx-pst-content';
+                contentDiv.style.display = 'flex';
+                contentDiv.style.flexDirection = 'column';
+                contentDiv.style.gap = '4px';
+
+                section.lines.forEach(line => {
+                    if (!line.trim()) {
+                        const spacer = document.createElement('div');
+                        spacer.style.height = '8px';
+                        contentDiv.appendChild(spacer);
+                        return;
+                    }
+
+                    const row = document.createElement('div');
+                    row.className = 'sfx-pst-row';
+
+                    const contentSpan = document.createElement('span');
+                    contentSpan.className = 'sfx-pst-row-content';
+
+                    linkRegex.lastIndex = 0;
+                    let lastIndex = 0;
+                    let match;
+                    while ((match = linkRegex.exec(line)) !== null) {
+                        if (match.index > lastIndex) {
+                            contentSpan.appendChild(document.createTextNode(line.slice(lastIndex, match.index)));
+                        }
+
+                        const rawUrl = match[0];
+                        const cleanUrl = rawUrl.replace(/"/g, '%22');
+
+                        const anchor = document.createElement('a');
+                        anchor.href = cleanUrl;
+                        const pstDlStyle = getSetting('sfx-download-link-style', 'tab');
+                        if (pstDlStyle === 'popup') {
+                            anchor.addEventListener('click', function(e) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                sfxOpenPopup(this.href);
+                            });
+                            anchor.removeAttribute('target');
+                        } else {
+                            anchor.target = '_blank';
+                        }
+                        anchor.rel = 'noopener noreferrer';
+                        anchor.textContent = rawUrl;
+                        contentSpan.appendChild(anchor);
+
+                        if (getSetting('sfx-mega-fetchrr-enabled', true) && (cleanUrl.includes('mega.nz/file/') || cleanUrl.includes('mega.nz/folder/'))) {
+                            const circle = document.createElement('span');
+                            circle.className = 'sinflix-mega-fetchrr-dot';
+                            circle.title = 'Open in Fetchrr.io — direct mirror download';
+                            circle.dataset.megaUrl = cleanUrl;
+                            contentSpan.appendChild(circle);
+                        }
+
+                        if (cleanUrl.includes('fileditchfiles.me')) {
+                            const dlCircle = document.createElement('span');
+                            dlCircle.className = 'sinflix-fd-dl-circle';
+                            dlCircle.title = '\u2b07 Download via FileDitch (auto-clicks download & closes)';
+                            dlCircle.dataset.fdUrl = cleanUrl;
+                            contentSpan.appendChild(dlCircle);
+                        }
+
+                        lastIndex = match.index + match[0].length;
+                    }
+
+                    if (lastIndex < line.length) {
+                        contentSpan.appendChild(document.createTextNode(line.slice(lastIndex)));
+                    }
+
+                    row.appendChild(contentSpan);
+                    contentDiv.appendChild(row);
+                });
+
+                sectionEl.appendChild(contentDiv);
+                preElement.appendChild(sectionEl);
+            });
+        } else {
+            preElement.classList.remove('sfx-pst-processed');
+            // Original rendering
+            let currentResolution = null;
+            const linkRegex = /(https?:\/\/[^\s]+)/g;
+
+            function processTextContent(text) {
+                const fragment = document.createDocumentFragment();
+                const lines = text.split('\n');
+
+                lines.forEach((line, lineIdx) => {
+                    const resMatch = line.trim().match(/^---\s+(.*?)\s+---/);
+                    if (resMatch) {
+                        currentResolution = resMatch[1];
+                        const resSpan = document.createElement('span');
+                        resSpan.className = 'sinflix-res-header';
+
+                        const textNode = document.createTextNode(line.trim() + ' ');
+                        resSpan.appendChild(textNode);
+
+                        fragment.appendChild(resSpan);
+                        fragment.appendChild(document.createTextNode('\n'));
+                        return;
+                    }
+
+                    linkRegex.lastIndex = 0;
+                    let lastIndex = 0;
+                    let match;
+                    while ((match = linkRegex.exec(line)) !== null) {
+                        if (match.index > lastIndex) {
+                            fragment.appendChild(document.createTextNode(line.slice(lastIndex, match.index)));
+                        }
+
+                        const rawUrl = match[0];
+                        const cleanUrl = rawUrl.replace(/"/g, '%22');
+
+                        const anchor = document.createElement('a');
+                        anchor.href = cleanUrl;
+                        const pstDlStyle = getSetting('sfx-download-link-style', 'tab');
+                        if (pstDlStyle === 'popup') {
+                            anchor.addEventListener('click', function(e) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                sfxOpenPopup(this.href);
+                            });
+                            anchor.removeAttribute('target');
+                        } else {
+                            anchor.target = '_blank';
+                        }
+                        anchor.rel = 'noopener noreferrer';
+                        anchor.textContent = rawUrl;
+                        fragment.appendChild(anchor);
+
+                        if (getSetting('sfx-mega-fetchrr-enabled', true) && (cleanUrl.includes('mega.nz/file/') || cleanUrl.includes('mega.nz/folder/'))) {
+                            const circle = document.createElement('span');
+                            circle.className = 'sinflix-mega-fetchrr-dot';
+                            circle.title = 'Open in Fetchrr.io — direct mirror download';
+                            circle.dataset.megaUrl = cleanUrl;
+                            fragment.appendChild(circle);
+                        }
+
+                        if (cleanUrl.includes('fileditchfiles.me')) {
+                            const dlCircle = document.createElement('span');
+                            dlCircle.className = 'sinflix-fd-dl-circle';
+                            dlCircle.title = '\u2b07 Download via FileDitch (auto-clicks download & closes)';
+                            dlCircle.dataset.fdUrl = cleanUrl;
+                            fragment.appendChild(dlCircle);
+                        }
+
+                        lastIndex = match.index + match[0].length;
+                    }
+
+                    if (lastIndex < line.length) {
+                        fragment.appendChild(document.createTextNode(line.slice(lastIndex)));
+                    }
+
+                    if (lineIdx < lines.length - 1) {
+                        fragment.appendChild(document.createTextNode('\n'));
+                    }
+                });
+
+                return fragment;
+            }
+
+            const childNodes = Array.from(preElement.childNodes);
+            for (const node of childNodes) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    const fragment = processTextContent(node.textContent);
+                    preElement.replaceChild(fragment, node);
+                }
             }
         }
 
+        // Shared click events setup for generated circles (whether original or enhanced)
         document.querySelectorAll('.sinflix-fd-dl-circle').forEach(circle => {
-            circle.addEventListener('click', () => {
+            if (circle.dataset.sfxListener) return;
+            circle.dataset.sfxListener = 'true';
+            circle.addEventListener('click', (e) => {
+                e.stopPropagation();
                 if (circle.classList.contains('fd-loading')) return;
                 circle.classList.add('fd-loading');
                 const style = getSetting('sfx-fileditch-open-style', 'popup');
@@ -2575,15 +3149,15 @@
                     w = window.open(url, '_blank',
                         `width=${wWidth},height=${wHeight},left=${left},top=${top},menubar=no,toolbar=no,status=no,location=yes`);
                 }
-                showNotification('Opening FileDitch... will auto-download & close.', 'info', 5000);
+                showProgressIsland('Opening FileDitch... will auto-download & close.', 'info', 5000);
                 setTimeout(() => circle.classList.remove('fd-loading'), 18000);
                 if (!w) showNotification('Popup blocked! Allow popups/tabs for pst.moe.', 'error', 6000);
             });
         });
 
-
-
         document.querySelectorAll('.sinflix-mega-fetchrr-dot').forEach(dot => {
+            if (dot.dataset.sfxListener) return;
+            dot.dataset.sfxListener = 'true';
             dot.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const megaUrl = dot.getAttribute('data-mega-url');
@@ -2593,13 +3167,22 @@
             });
         });
 
-        return true;
+        if (!window.sfxDropdownInit) {
+            window.sfxDropdownInit = true;
+            document.addEventListener('click', () => {
+                document.querySelectorAll('.sfx-copy-dropdown-menu.sfx-show').forEach(m => {
+                    m.classList.remove('sfx-show');
+                    m.parentElement.classList.remove('sfx-active');
+                });
+            });
+        }
+    }
     }
 
     /* --- BuzzHeavier Enhancements & Retry Fallback --- */
     const buzzDownloadUrlsCache = new Map();
 
-    function showProgressIsland(message, statusType = 'progress') {
+    function showProgressIsland(message, statusType = 'progress', onConfirm = null, onCancel = null) {
         let island = document.getElementById('sfx-island-wrap');
         if (!island) {
             island = document.createElement('div');
@@ -2611,6 +3194,12 @@
                 </div>
             `;
             document.body.appendChild(island);
+        }
+
+        // Clean up selection actions if switching to other modes
+        if (statusType !== 'selection') {
+            const actions = island.querySelector('.sfx-island-selection-actions');
+            if (actions) actions.remove();
         }
 
         // Set class and styles
@@ -2654,37 +3243,87 @@
                 `;
             }
             setTimeout(() => hideProgressIsland(island), 3000);
+        } else if (statusType === 'warning') {
+            island.style.borderColor = 'rgba(255, 159, 10, 0.3)';
+            island.style.background = 'rgba(30, 20, 10, 0.9)';
+            if (iconContainer) {
+                iconContainer.innerHTML = `
+                    <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: #ff9f0a;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                `;
+            }
+            setTimeout(() => hideProgressIsland(island), 8000);
+        } else if (statusType === 'selection') {
+            island.style.borderColor = 'rgba(10, 132, 255, 0.3)';
+            island.style.background = 'rgba(15, 20, 35, 0.9)';
+            if (iconContainer) {
+                iconContainer.innerHTML = `
+                    <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: #0a84ff;"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                `;
+            }
+
+            let actionsWrap = island.querySelector('.sfx-island-selection-actions');
+            if (!actionsWrap) {
+                actionsWrap = document.createElement('div');
+                actionsWrap.className = 'sfx-island-selection-actions';
+                actionsWrap.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-left: 12px;';
+                actionsWrap.innerHTML = `
+                    <button class="sfx-island-confirm-btn" style="background: rgba(48, 209, 88, 0.2); border: 1px solid rgba(48, 209, 88, 0.4); color: #30d158; width: 24px; height: 24px; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s;" title="Confirm selection">
+                        <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; fill: currentColor;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                    </button>
+                    <button class="sfx-island-cancel-btn" style="background: rgba(255, 69, 58, 0.2); border: 1px solid rgba(255, 69, 58, 0.4); color: #ff453a; width: 24px; height: 24px; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s;" title="Cancel selection">
+                        <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; fill: currentColor;"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                    </button>
+                `;
+                island.appendChild(actionsWrap);
+            }
+
+            const confirmBtn = actionsWrap.querySelector('.sfx-island-confirm-btn');
+            const cancelBtn = actionsWrap.querySelector('.sfx-island-cancel-btn');
+
+            const newConfirmBtn = confirmBtn.cloneNode(true);
+            const newCancelBtn = cancelBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+            cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+
+            newConfirmBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (onConfirm) onConfirm();
+            });
+            newCancelBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (onCancel) onCancel();
+            });
         }
     }
 
     function hideProgressIsland(island) {
         if (!island) return;
-        
+
         const isMainPage = window.location.href.includes('rentry.co/sin-flix') || window.location.href.includes('text.is/Sinflix');
-        
+
         if (isMainPage) {
             // Restore search bar state
             island.classList.remove('sfx-progress-mode');
-            
+
             // Restore original search icon
             const iconContainer = island.querySelector('#sfx-island-search-icon');
             if (iconContainer) {
                 iconContainer.innerHTML = `<svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>`;
             }
-            
+
             // Restore label
             const label = island.querySelector('#sfx-island-label');
             if (label) label.textContent = 'Search';
-            
+
             // Restore styles
             island.style.borderColor = '';
             island.style.background = '';
-            
+
             // Re-evaluate collapsed state based on scroll/hover/focus
             const input = island.querySelector('#sfx-island-input');
             const isFocused = input === document.activeElement;
             const isScrolled = window.scrollY > 80;
-            
+
             if (isFocused || !isScrolled) {
                 island.classList.remove('sfx-collapsed');
             } else {
@@ -2929,90 +3568,529 @@
 
 
     function enhanceBuzzheavierContent() {
-        // ALWAYS add the styling class to body on buzzheavier.com since table styling has no on/off toggle
-        document.body.classList.add('sfx-bh-enhanced');
+        try {
+            // ALWAYS add the styling class to body on buzzheavier.com since table styling has no on/off toggle
+            document.body.classList.add('sfx-bh-enhanced');
 
-        const isEnhance = getSetting('sfx-buzzheavier-ui-enhancements', false);
+            const isEnhance = getSetting('sfx-buzzheavier-ui-enhancements', false);
 
-        // Try by ID first (live BuzzHeavier page uses id="tbody"), fallback to first non-sfx tbody
-        let tbody = document.getElementById('tbody');
-        if (!tbody) {
-            // find the first table tbody that isn't one of our quality sub-tbodies
-            const allTbodies = Array.from(document.querySelectorAll('table tbody'));
-            tbody = allTbodies.find(tb => !tb.id.startsWith('sfx-tbody')) || null;
-        }
-        const isListPage = tbody !== null;
-        const isSinglePage = !isListPage && !!document.querySelector('a[hx-get*="/download"]');
-
-        const isFileAnchor = (a) => {
-            if (!a || !a.href) return false;
-            const path = a.getAttribute('href') || '';
-            const href = a.href || '';
-            if (href.includes('/help') || href.includes('/contact') || href.includes('/proxy') || href.includes('/faq') || href.includes('/terms') || href.includes('/privacy') || href.includes('/blog') || href.includes('/pricing') || href.includes('/speedtest') || href.includes('/developers')) {
-                return false;
+            // Try by ID first (live BuzzHeavier page uses id="tbody"), fallback to first non-sfx tbody
+            let tbody = document.getElementById('tbody');
+            if (!tbody) {
+                // find the first table tbody that isn't one of our quality sub-tbodies
+                // and isn't nested inside a td (BuzzHeavier rows have nested tables)
+                const allTbodies = Array.from(document.querySelectorAll('table.fs > tbody, .mx-auto > div > table > tbody'));
+                tbody = allTbodies.find(tb => !tb.id.startsWith('sfx-tbody')) || null;
+                if (!tbody) {
+                    const fallbackTbodies = Array.from(document.querySelectorAll('table > tbody'));
+                    tbody = fallbackTbodies.find(tb => !tb.id.startsWith('sfx-tbody') && !tb.closest('td')) || null;
+                }
             }
-            return href.includes('buzzheavier.com/') || path.startsWith('/') || !path.includes('://');
-        };
+            const isListPage = tbody !== null;
+            const isSinglePage = !isListPage && !!document.querySelector('a[hx-get*="/download"]');
 
-        const addCapsuleToRow = (row, link) => {
-            const td = link.closest('td') || link.parentNode;
-            if (td && !row.querySelector('.sfx-bh-row-capsule')) {
-                td.style.position = 'relative';
-                td.style.overflow = 'hidden';
+            const isFileAnchor = (a) => {
+                if (!a || !a.href) return false;
+                const path = a.getAttribute('href') || '';
+                const href = a.href || '';
+                if (href.includes('/help') || href.includes('/contact') || href.includes('/proxy') || href.includes('/faq') || href.includes('/terms') || href.includes('/privacy') || href.includes('/blog') || href.includes('/pricing') || href.includes('/speedtest') || href.includes('/developers')) {
+                    return false;
+                }
+                return href.includes('buzzheavier.com/') || path.startsWith('/') || !path.includes('://');
+            };
 
-                link.style.display = 'inline-block';
-                link.style.maxWidth = 'calc(100% - 64px)';
-                link.style.overflow = 'hidden';
-                link.style.textOverflow = 'ellipsis';
-                link.style.whiteSpace = 'nowrap';
-                link.style.verticalAlign = 'middle';
+            const addCapsuleToRow = (row, link) => {
+                const td = link.closest('td') || link.parentNode;
+                if (td && !row.querySelector('.sfx-bh-row-capsule')) {
+                    td.style.position = 'relative';
+                    td.style.overflow = 'hidden';
 
-                const capsule = document.createElement('span');
-                capsule.className = 'sfx-bh-row-capsule';
-                capsule.innerHTML = `
-                    <button class="sfx-bh-row-btn sfx-bh-copy" title="Copy Direct Link (Auto-Fallback)">
-                        <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-                    </button>
-                    <span class="sfx-bh-row-divider"></span>
-                    <button class="sfx-bh-row-btn sfx-bh-dl" title="Download File (Auto-Fallback)">
-                        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-                    </button>
-                `;
+                    link.style.display = 'inline-block';
+                    link.style.maxWidth = 'calc(100% - 64px)';
+                    link.style.overflow = 'hidden';
+                    link.style.textOverflow = 'ellipsis';
+                    link.style.whiteSpace = 'nowrap';
+                    link.style.verticalAlign = 'middle';
 
-                capsule.querySelector('.sfx-bh-copy').addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    resolveWithFallback(link.href, 0, 'copy');
+                    const capsule = document.createElement('span');
+                    capsule.className = 'sfx-bh-row-capsule';
+                    capsule.innerHTML = `
+                        <button class="sfx-bh-row-btn sfx-bh-copy" title="Copy Direct Link (Auto-Fallback)">
+                            <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                        </button>
+                        <span class="sfx-bh-row-divider"></span>
+                        <button class="sfx-bh-row-btn sfx-bh-dl" title="Download File (Auto-Fallback)">
+                            <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                        </button>
+                    `;
+
+                    capsule.querySelector('.sfx-bh-copy').addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        resolveWithFallback(link.href, 0, 'copy');
+                    });
+
+                    capsule.querySelector('.sfx-bh-dl').addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        resolveWithFallback(link.href, 0, 'dl');
+                    });
+
+                    td.appendChild(capsule);
+                }
+            };
+
+            const removeCapsules = () => {
+                document.querySelectorAll('.sfx-bh-row-capsule').forEach(el => el.remove());
+                document.querySelectorAll('table tbody tr td a').forEach(link => {
+                    link.style.display = '';
+                    link.style.maxWidth = '';
+                    link.style.overflow = '';
+                    link.style.textOverflow = '';
+                    link.style.whiteSpace = '';
+                    link.style.verticalAlign = '';
+                });
+            };
+
+            // --- Quality split helpers ---
+            const extractQuality = (filename) => {
+                const m = filename.match(/(\d{3,4})p/i);
+                return m ? parseInt(m[1], 10) : null;
+            };
+
+            const removeQualitySplit = () => {
+                cancelActiveSelection();
+                document.querySelectorAll('.sfx-quality-section').forEach(el => el.remove());
+                // Show the original table again
+                const origTable = document.getElementById('tbody') ? document.getElementById('tbody').closest('table') : document.querySelector('table.fs') || document.querySelector('table');
+                if (origTable) origTable.style.display = '';
+            };
+
+            const cancelActiveSelection = () => {
+                document.querySelectorAll('.sfx-checkbox-header-col, .sfx-checkbox-col').forEach(el => el.remove());
+                const island = document.getElementById('sfx-island-wrap');
+                if (island) {
+                    const actions = island.querySelector('.sfx-island-selection-actions');
+                    if (actions) actions.remove();
+                    if (island.className.includes('sfx-progress-mode') && island.querySelector('#sfx-island-label').textContent.startsWith('Selected:')) {
+                        hideProgressIsland(island);
+                    }
+                }
+            };
+
+            const selectCustomForGroup = (table, groupRows, labelText) => {
+                cancelActiveSelection();
+
+                // Add header checkbox
+                const thead = table.querySelector('thead');
+                const theadTr = thead ? Array.from(thead.children).find(el => el.tagName === 'TR') : null;
+                if (theadTr && !theadTr.querySelector('.sfx-checkbox-header-col')) {
+                    const th = document.createElement('th');
+                    th.className = 'sfx-checkbox-header-col';
+                    th.style.width = '40px';
+                    th.style.textAlign = 'center';
+                    th.innerHTML = `<input type="checkbox" class="sfx-select-all-checkbox" style="cursor: pointer; width: 16px; height: 16px; border-radius: 4px; vertical-align: middle;">`;
+                    theadTr.insertBefore(th, theadTr.firstChild);
+
+                    th.querySelector('.sfx-select-all-checkbox').addEventListener('change', (e) => {
+                        const checked = e.target.checked;
+                        const tbody = table.querySelector('tbody');
+                        const outerRows = tbody ? Array.from(tbody.children).filter(el => el.tagName === 'TR') : [];
+                        outerRows.forEach(tr => {
+                            const cb = tr.querySelector('.sfx-row-checkbox');
+                            if (cb) cb.checked = checked;
+                        });
+                        updateSelectionCount();
+                    });
+                }
+
+                // Add row checkboxes
+                const tbody = table.querySelector('tbody');
+                const tbodyTrs = tbody ? Array.from(tbody.children).filter(el => el.tagName === 'TR') : [];
+                tbodyTrs.forEach(tr => {
+                    if (!tr.querySelector('.sfx-checkbox-col')) {
+                        const td = document.createElement('td');
+                        td.className = 'sfx-checkbox-col';
+                        td.style.textAlign = 'center';
+                        td.style.verticalAlign = 'middle';
+                        td.innerHTML = `<input type="checkbox" class="sfx-row-checkbox" style="cursor: pointer; width: 16px; height: 16px; border-radius: 4px; vertical-align: middle;">`;
+                        tr.insertBefore(td, tr.firstChild);
+
+                        td.querySelector('.sfx-row-checkbox').addEventListener('change', () => {
+                            updateSelectionCount();
+                        });
+                    }
                 });
 
-                capsule.querySelector('.sfx-bh-dl').addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    resolveWithFallback(link.href, 0, 'dl');
+                const removeCheckboxes = () => {
+                    table.querySelectorAll('.sfx-checkbox-header-col, .sfx-checkbox-col').forEach(el => el.remove());
+                };
+
+                const handleCancel = () => {
+                    removeCheckboxes();
+                    const island = document.getElementById('sfx-island-wrap');
+                    if (island) {
+                        const actions = island.querySelector('.sfx-island-selection-actions');
+                        if (actions) actions.remove();
+                        hideProgressIsland(island);
+                    }
+                };
+
+                const handleConfirm = () => {
+                    const tbody = table.querySelector('tbody');
+                    const outerRows = tbody ? Array.from(tbody.children).filter(el => el.tagName === 'TR') : [];
+                    const selectedRows = outerRows.filter(tr => {
+                        const cb = tr.querySelector('.sfx-row-checkbox');
+                        return cb && cb.checked;
+                    });
+
+                    if (selectedRows.length === 0) {
+                        showProgressIsland("No items selected", "error");
+                        removeCheckboxes();
+                        return;
+                    }
+
+                    removeCheckboxes();
+
+                    const fileUrls = [];
+                    selectedRows.forEach(row => {
+                        const link = Array.from(row.querySelectorAll('a[href]')).find(isFileAnchor);
+                        if (link && link.href) {
+                            fileUrls.push(link.href);
+                        }
+                    });
+
+                    const total = fileUrls.length;
+                    let resolvedCount = 0;
+                    const results = new Array(total);
+
+                    showProgressIsland(`Resolving links: 0/${total}`, 'progress');
+
+                    fileUrls.forEach((url, index) => {
+                        fetchDirectLink(url, 0, (directUrl) => {
+                            resolvedCount++;
+                            results[index] = directUrl;
+
+                            showProgressIsland(`Resolving links: ${resolvedCount}/${total}`, 'progress');
+
+                            if (resolvedCount === total) {
+                                const validLinks = results.filter(Boolean);
+                                if (validLinks.length > 0) {
+                                    GM_setClipboard(validLinks.join('\n'), 'text');
+                                    showProgressIsland(`Copied ${validLinks.length}/${total} links!`, 'success');
+                                } else {
+                                    showProgressIsland(`Failed to resolve any links`, 'error');
+                                }
+                            }
+                        });
+                    });
+                };
+
+                const updateSelectionCount = () => {
+                    const tbody = table.querySelector('tbody');
+                    const outerRows = tbody ? Array.from(tbody.children).filter(el => el.tagName === 'TR') : [];
+                    const selectedCount = outerRows.filter(tr => {
+                        const cb = tr.querySelector('.sfx-row-checkbox');
+                        return cb && cb.checked;
+                    }).length;
+                    showProgressIsland(`Selected: ${selectedCount} item${selectedCount !== 1 ? 's' : ''}`, 'selection', handleConfirm, handleCancel);
+                };
+
+                updateSelectionCount();
+            };
+
+            const parseSize = (sizeStr) => {
+                const match = sizeStr.match(/^([\d.]+)\s*([a-zA-Z]+)/);
+                if (!match) return 0;
+                const val = parseFloat(match[1]);
+                const unit = match[2].toUpperCase();
+                if (unit.startsWith('G')) return val * 1024 * 1024 * 1024;
+                if (unit.startsWith('M')) return val * 1024 * 1024;
+                if (unit.startsWith('K')) return val * 1024;
+                return val;
+            };
+
+            const formatSize = (bytes) => {
+                if (bytes >= 1024 * 1024 * 1024) {
+                    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+                }
+                if (bytes >= 1024 * 1024) {
+                    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+                }
+                if (bytes >= 1024) {
+                    return (bytes / 1024).toFixed(1) + ' KB';
+                }
+                return bytes + ' B';
+            };
+
+            const copyAllLinksForGroup = (groupRows, labelText) => {
+                const fileUrls = [];
+                groupRows.forEach(row => {
+                    const link = Array.from(row.querySelectorAll('a[href]')).find(isFileAnchor);
+                    if (link && link.href) {
+                        fileUrls.push(link.href);
+                    }
                 });
 
-                td.appendChild(capsule);
+                if (fileUrls.length === 0) {
+                    showProgressIsland("No links found", "error");
+                    return;
+                }
+
+                const total = fileUrls.length;
+                let resolvedCount = 0;
+                const results = new Array(total);
+
+                showProgressIsland(`Resolving ${labelText} links: 0/${total}`, 'progress');
+
+                fileUrls.forEach((url, index) => {
+                    fetchDirectLink(url, 0, (directUrl) => {
+                        resolvedCount++;
+                        results[index] = directUrl;
+
+                        showProgressIsland(`Resolving ${labelText} links: ${resolvedCount}/${total}`, 'progress');
+
+                        if (resolvedCount === total) {
+                            const validLinks = results.filter(Boolean);
+                            if (validLinks.length > 0) {
+                                GM_setClipboard(validLinks.join('\n'), 'text');
+                                showProgressIsland(`Copied ${validLinks.length}/${total} links!`, 'success');
+                            } else {
+                                showProgressIsland(`Failed to resolve any links`, 'error');
+                            }
+                        }
+                    });
+                });
+            };
+
+            let rows = [];
+            if (isListPage) {
+                // First, remove any previous quality split sections and restore the original table
+                removeQualitySplit();
+                // Clear any existing capsules to avoid copying dead event listeners
+                removeCapsules();
+
+                rows = Array.from(tbody.children).filter(el => el.tagName === 'TR');
+
+            // --- Quality-based table splitting ---
+            const qualityGroups = new Map();
+            let hasMultipleQualities = false;
+
+            if (getSetting('sfx-bh-quality-split', true)) {
+                rows.forEach(row => {
+                    const link = Array.from(row.querySelectorAll('a[href]')).find(isFileAnchor);
+                    const filename = link ? link.textContent.trim() : '';
+                    const quality = extractQuality(filename);
+                    const key = quality || 0;
+                    if (!qualityGroups.has(key)) qualityGroups.set(key, []);
+                    qualityGroups.get(key).push(row);
+                });
+                hasMultipleQualities = qualityGroups.size > 1;
             }
-        };
 
-        const removeCapsules = () => {
-            document.querySelectorAll('.sfx-bh-row-capsule').forEach(el => el.remove());
-            document.querySelectorAll('table tbody tr td a').forEach(link => {
-                link.style.display = '';
-                link.style.maxWidth = '';
-                link.style.overflow = '';
-                link.style.textOverflow = '';
-                link.style.whiteSpace = '';
-                link.style.verticalAlign = '';
-            });
-        };
+            if (hasMultipleQualities) {
+                // Sort qualities descending (highest first), unknown (0) last
+                const sortedQualities = Array.from(qualityGroups.keys()).sort((a, b) => {
+                    if (a === 0) return 1;
+                    if (b === 0) return -1;
+                    return b - a;
+                });
 
-        if (isListPage) {
-            const rows = Array.from(tbody.children).filter(el => el.tagName === 'TR');
+                const origTable = tbody.closest('table');
+                if (origTable) {
+                    const container = origTable.parentElement;
+                    const thead = origTable.querySelector('thead');
+
+                    sortedQualities.forEach(quality => {
+                        const groupRows = qualityGroups.get(quality);
+                        const table = document.createElement('table');
+                        table.className = origTable.className;
+
+                        if (thead) {
+                            const newThead = thead.cloneNode(true);
+                            newThead.querySelectorAll('a').forEach(a => {
+                                const span = a.querySelector('span');
+                                if (span) a.parentNode.replaceChild(span, a);
+                            });
+                            table.appendChild(newThead);
+                        }
+
+                        const newTbody = document.createElement('tbody');
+                        newTbody.id = `sfx-tbody-${quality}`;
+                        groupRows.forEach(row => {
+                            newTbody.appendChild(row.cloneNode(true));
+                        });
+                        table.appendChild(newTbody);
+
+                        const section = document.createElement('div');
+                        section.className = 'sfx-quality-section';
+
+                        // Calculate total size for this group
+                        let totalBytes = 0;
+                        groupRows.forEach(row => {
+                            let sizeCell = row.children ? row.children[1] : null;
+                            if (sizeCell && !/^\d+(\.\d+)?\s*[a-zA-Z]+$/.test(sizeCell.textContent.trim())) {
+                                sizeCell = Array.from(row.children).find(child => /^\d+(\.\d+)?\s*[a-zA-Z]+$/.test(child.textContent.trim()));
+                            }
+                            if (sizeCell) {
+                                totalBytes += parseSize(sizeCell.textContent.trim());
+                            }
+                        });
+                        const totalSizeFormatted = formatSize(totalBytes);
+
+                        // Quality header
+                        const header = document.createElement('div');
+                        header.className = 'sfx-quality-header';
+                        const label = quality === 0 ? 'Other' : `${quality}p`;
+
+                        let copyBtnHtml = '';
+                        const isCopyAllEnabled = getSetting('sfx-bh-copy-all', true);
+                        const isCustomSelectEnabled = getSetting('sfx-bh-custom-select', true);
+
+                        if (isCopyAllEnabled && isCustomSelectEnabled) {
+                            copyBtnHtml = `
+                                <div class="sfx-copy-dropdown-container">
+                                    <button class="sfx-bh-copy-dropdown-trigger" title="Copy options">
+                                        <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                                        <span>Copy</span>
+                                        <svg viewBox="0 0 24 24" class="sfx-dropdown-arrow"><path d="M7 10l5 5 5-5z"/></svg>
+                                    </button>
+                                    <div class="sfx-copy-dropdown-menu">
+                                        <button class="sfx-dropdown-item sfx-copy-all-item">
+                                            <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                                            <span>Copy All Links</span>
+                                        </button>
+                                        <div class="sfx-dropdown-divider"></div>
+                                        <button class="sfx-dropdown-item sfx-custom-select-item">
+                                            <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                                            <span>Select Custom</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        } else if (isCopyAllEnabled) {
+                            copyBtnHtml = `
+                                <button class="sfx-bh-copy-all-btn" title="Resolve and copy all direct links for ${label}">
+                                    <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                                    Copy All
+                                </button>
+                            `;
+                        } else if (isCustomSelectEnabled) {
+                            copyBtnHtml = `
+                                <button class="sfx-bh-select-custom-btn" title="Select custom links for ${label}">
+                                    <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                                    Select
+                                </button>
+                            `;
+                        }
+
+                        header.innerHTML = `
+                            <div class="sfx-quality-info">
+                                <span class="sfx-quality-badge">
+                                    <svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM5 15h14v3H5z"/></svg>
+                                    ${label}
+                                </span>
+                                <span class="sfx-quality-meta">${groupRows.length} Ep${groupRows.length !== 1 ? 's' : ''}</span>
+                                <span class="sfx-quality-dot"></span>
+                                <span class="sfx-quality-size">${totalSizeFormatted}</span>
+                            </div>
+                            <div class="sfx-quality-actions" style="display: flex; align-items: center; gap: 8px;">
+                                ${copyBtnHtml}
+                            </div>
+                        `;
+                        section.appendChild(header);
+
+                        if (isCopyAllEnabled && isCustomSelectEnabled) {
+                            const container = header.querySelector('.sfx-copy-dropdown-container');
+                            const trigger = container.querySelector('.sfx-bh-copy-dropdown-trigger');
+                            const menu = container.querySelector('.sfx-copy-dropdown-menu');
+
+                            trigger.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+
+                                const isShown = menu.classList.contains('sfx-show');
+
+                                document.querySelectorAll('.sfx-copy-dropdown-menu.sfx-show').forEach(m => {
+                                    m.classList.remove('sfx-show');
+                                    m.parentElement.classList.remove('sfx-active');
+                                });
+
+                                if (!isShown) {
+                                    menu.classList.add('sfx-show');
+                                    container.classList.add('sfx-active');
+                                }
+                            });
+
+                            menu.querySelector('.sfx-copy-all-item').addEventListener('click', (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                menu.classList.remove('sfx-show');
+                                container.classList.remove('sfx-active');
+                                copyAllLinksForGroup(groupRows, label);
+                            });
+
+                            menu.querySelector('.sfx-custom-select-item').addEventListener('click', (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                menu.classList.remove('sfx-show');
+                                container.classList.remove('sfx-active');
+                                selectCustomForGroup(table, groupRows, label);
+                            });
+                        } else if (isCopyAllEnabled) {
+                            const btn = header.querySelector('.sfx-bh-copy-all-btn');
+                            if (btn) {
+                                btn.addEventListener('click', (e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    copyAllLinksForGroup(groupRows, label);
+                                });
+                            }
+                        } else if (isCustomSelectEnabled) {
+                            const btn = header.querySelector('.sfx-bh-select-custom-btn');
+                            if (btn) {
+                                btn.addEventListener('click', (e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    selectCustomForGroup(table, groupRows, label);
+                                });
+                            }
+                        }
+
+                        section.appendChild(table);
+                        if (container) container.insertBefore(section, origTable);
+                    });
+
+                    // Add global listener to close all dropdowns when clicking outside
+                    if (!window.sfxDropdownInit) {
+                        window.sfxDropdownInit = true;
+                        document.addEventListener('click', () => {
+                            document.querySelectorAll('.sfx-copy-dropdown-menu.sfx-show').forEach(m => {
+                                m.classList.remove('sfx-show');
+                                m.parentElement.classList.remove('sfx-active');
+                            });
+                        });
+                    }
+
+                    // Hide the original table
+                    origTable.style.display = 'none';
+                    console.log(`SinFlix Modifier: Split table into ${qualityGroups.size} quality groups.`);
+                }
+            } else {
+                console.log(`SinFlix Modifier: Not splitting table. Found ${qualityGroups.size} qualities.`);
+            }
+
+            // --- Capsule enhancements (respects isEnhance toggle) ---
             if (!isEnhance) {
                 removeCapsules();
             } else {
-                rows.forEach(row => {
+                // Add capsules to the visible rows (quality-split tables or original)
+                const visibleTbodies = document.querySelectorAll('.sfx-quality-section tbody');
+                const targetRows = visibleTbodies.length > 0
+                    ? Array.from(document.querySelectorAll('.sfx-quality-section tbody tr'))
+                    : rows;
+
+                targetRows.forEach(row => {
                     const link = Array.from(row.querySelectorAll('a[href]')).find(isFileAnchor);
                     if (link) {
                         addCapsuleToRow(row, link);
@@ -3144,7 +4222,16 @@
                 }
             }
         }
+    } catch (e) {
+        console.error('SinFlixModifier error inside enhanceBuzzheavierContent:', e);
+        // Render a user-visible error banner on the page for debugging
+        const errBanner = document.createElement('div');
+        errBanner.style.cssText = 'background: #fee2e2; color: #991b1b; padding: 12px; margin: 10px 0; border: 1px solid #f87171; border-radius: 6px; font-family: monospace; font-size: 14px; z-index: 9999; position: relative;';
+        errBanner.innerHTML = `<strong>SinFlix Modifier Error:</strong> ${e.message}<br><small>${e.stack.replace(/\\n/g, '<br>').substring(0, 500)}</small>`;
+        const container = document.querySelector('.mx-auto') || document.body;
+        if (container) container.insertBefore(errBanner, container.firstChild);
     }
+}
 
     function init() {
         const host = window.location.hostname;
@@ -3170,13 +4257,48 @@
                 // Expose runEnhance so settings toggles can call it
                 bhRunEnhance = runEnhance;
 
-                bhObserver = new MutationObserver(() => {
+                bhObserver = new MutationObserver((mutations) => {
+                    const ignore = mutations.every(m => {
+                        const target = m.target;
+                        const el = target.nodeType === Node.ELEMENT_NODE ? target : target.parentElement;
+                        if (!el) return false;
+
+                        // If the mutation happened directly on document.body, check if the added/removed nodes are our ignored wrappers
+                        if (target === document.body) {
+                            const nodes = Array.from(m.addedNodes).concat(Array.from(m.removedNodes));
+                            const allIgnored = nodes.every(node => {
+                                if (node.nodeType !== Node.ELEMENT_NODE) return true; // ignore text nodes, comments etc.
+                                return node.id === 'sfx-island-wrap' ||
+                                       node.id === 'sfx-back-to-top' ||
+                                       node.classList.contains('sfx-quality-section');
+                            });
+                            if (allIgnored) return true;
+                        }
+
+                        return el.closest('#sfx-island-wrap') ||
+                               el.closest('#sfx-back-to-top') ||
+                               el.closest('.sfx-quality-section') ||
+                               el.closest('.sfx-bh-single-card') ||
+                               el.closest('.sfx-bh-row-capsule');
+                    });
+                    if (ignore) return;
+
                     clearTimeout(bhDebounce);
                     bhDebounce = setTimeout(runEnhance, 120);
                 });
 
                 runEnhance();
                 bhObserver.observe(document.body, { childList: true, subtree: true });
+
+                // First time visit notice
+                const alertSeen = GM_getValue('sfx-bh-alert-seen', false);
+                if (!alertSeen) {
+                    GM_setValue('sfx-bh-alert-seen', true);
+                    setTimeout(() => {
+                        alert("Notice: If you are using uBlock Origin or other adblockers, please consider disabling them on BuzzHeavier to get the full experience (preventing API request blocks)!");
+                        showProgressIsland("Adblock Notice: Disable uBlock Origin for best experience", "warning");
+                    }, 1000);
+                }
             } catch(e) {
                 console.error('SinFlixModifier error on buzzheavier.com:', e);
             }
@@ -3322,22 +4444,6 @@
                         </div>
                         <div class="sfx-settings-row-divider"></div>
                         <div class="sfx-switch-row">
-                            <span class="sfx-switch-label">BuzzHeavier Link Conversion</span>
-                            <label class="sfx-switch">
-                                <input type="checkbox" id="sfx-toggle-buzzheavier">
-                                <span class="sfx-slider"></span>
-                            </label>
-                        </div>
-                        <div class="sfx-settings-row-divider"></div>
-                        <div class="sfx-switch-row">
-                            <span class="sfx-switch-label">BuzzHeavier Download UI</span>
-                            <label class="sfx-switch">
-                                <input type="checkbox" id="sfx-toggle-buzzheavier-ui">
-                                <span class="sfx-slider"></span>
-                            </label>
-                        </div>
-                        <div class="sfx-settings-row-divider"></div>
-                        <div class="sfx-switch-row">
                             <span class="sfx-switch-label">Mega &rarr; Fetchrr Pill</span>
                             <label class="sfx-switch">
                                 <input type="checkbox" id="sfx-toggle-mega-fetchrr">
@@ -3363,6 +4469,54 @@
                         </div>
                     </div>
 
+                    <!-- SECTION: BUZZHEAVIER OPTIONS -->
+                    <div class="sfx-settings-section-title">BuzzHeavier Options</div>
+                    <div class="sfx-settings-group">
+                        <div class="sfx-switch-row">
+                            <span class="sfx-switch-label">BuzzHeavier Link Conversion</span>
+                            <label class="sfx-switch">
+                                <input type="checkbox" id="sfx-toggle-buzzheavier">
+                                <span class="sfx-slider"></span>
+                            </label>
+                        </div>
+                        <div class="sfx-settings-row-divider"></div>
+                        <div class="sfx-switch-row">
+                            <span class="sfx-switch-label">BuzzHeavier Download UI</span>
+                            <label class="sfx-switch">
+                                <input type="checkbox" id="sfx-toggle-buzzheavier-ui">
+                                <span class="sfx-slider"></span>
+                            </label>
+                        </div>
+                        <div class="sfx-settings-row-divider"></div>
+                        <div class="sfx-switch-row">
+                            <span class="sfx-switch-label">BuzzHeavier Quality Split</span>
+                            <label class="sfx-switch">
+                                <input type="checkbox" id="sfx-toggle-buzzheavier-split">
+                                <span class="sfx-slider"></span>
+                            </label>
+                        </div>
+                        <div class="sfx-settings-row-divider"></div>
+                        <div class="sfx-switch-row">
+                            <span class="sfx-switch-label">BuzzHeavier Copy All Links</span>
+                            <label class="sfx-switch">
+                                <input type="checkbox" id="sfx-toggle-buzzheavier-copy-all">
+                                <span class="sfx-slider"></span>
+                            </label>
+                        </div>
+                        <div class="sfx-settings-row-divider"></div>
+                        <div class="sfx-switch-row">
+                            <span class="sfx-switch-label">BuzzHeavier Custom Select</span>
+                            <label class="sfx-switch">
+                                <input type="checkbox" id="sfx-toggle-buzzheavier-custom-select">
+                                <span class="sfx-slider"></span>
+                            </label>
+                        </div>
+                        <div class="sfx-settings-row-divider"></div>
+                        <div class="sfx-settings-notice" style="padding: 10px; margin: 8px; border-radius: 8px; background: rgba(255, 159, 10, 0.08); border: 1px solid rgba(255, 159, 10, 0.15); font-size: 11px; color: #ff9f0a; line-height: 1.4; text-align: left;">
+                            <strong>Adblock Notice:</strong> If you use uBlock Origin or other adblockers, please consider turning them off on BuzzHeavier / SinFlix to get the full experience (prevents extension-blocking of API requests).
+                        </div>
+                    </div>
+
                     <!-- SECTION: PST.MOE OPTIONS -->
                     <div class="sfx-settings-section-title">pst.moe Options</div>
                     <div class="sfx-settings-group">
@@ -3370,6 +4524,14 @@
                             <span class="sfx-switch-label">Dark Background</span>
                             <label class="sfx-switch">
                                 <input type="checkbox" id="sfx-toggle-pst-dark">
+                                <span class="sfx-slider"></span>
+                            </label>
+                        </div>
+                        <div class="sfx-settings-row-divider"></div>
+                        <div class="sfx-switch-row">
+                            <span class="sfx-switch-label">pst.moe Copy Options</span>
+                            <label class="sfx-switch">
+                                <input type="checkbox" id="sfx-toggle-pst-copy-options">
                                 <span class="sfx-slider"></span>
                             </label>
                         </div>
