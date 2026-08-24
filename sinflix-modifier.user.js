@@ -1,14 +1,18 @@
 // ==UserScript==
 // @name         SinFlix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.07.12.01
-// @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On BuzzHeavier folder pages: auto-splits episodes by quality (1080p/720p/540p etc.) into separate tables sorted highest-to-lowest. On pst.moe: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
+// @version      26.07.12.03
+// @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On BuzzHeavier folder pages: auto-splits episodes by quality (1080p/720p/540p etc.) into separate tables sorted highest-to-lowest. On pst.moe & p.darklab.sh / 0g.gg: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
 // @match        https://rentry.co/sin-flix
 // @match        https://text.is/Sinflix
 // @match        https://pst.moe/paste/*
 // @match        https://*.pst.moe/paste/*
+// @match        https://p.darklab.sh/*
+// @match        https://*.darklab.sh/*
+// @match        https://0g.gg/*
+// @match        https://*.0g.gg/*
 // @match        https://buzzheavier.com/*
 // @match        https://*.buzzheavier.com/*
 // @match        https://mega.nz/*
@@ -1165,6 +1169,14 @@
             transition: background 0.2s ease;
             gap: 10px;
         }
+        .sfx-pst-text-line {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            color: rgba(255, 255, 255, 0.85);
+            word-break: break-all;
+            padding: 0 8px;
+        }
         .sfx-pst-row:hover {
             background: rgba(255, 255, 255, 0.03);
         }
@@ -1374,10 +1386,30 @@
         `;
     }
 
-    // Styles for pst.moe paste page
-    if (window.location.hostname.includes('pst.moe')) {
+    // Styles for pst.moe & p.darklab.sh / 0g.gg paste pages
+    if (window.location.hostname.includes('pst.moe') || window.location.hostname.includes('darklab.sh') || window.location.hostname.includes('0g.gg')) {
         css += `
-            /* --- pst.moe Enhancements --- */
+            /* --- pst.moe & PrivateBin Enhancements --- */
+            .sfx-pst-container {
+                width: 100%;
+                margin-top: 8px;
+            }
+            .sfx-pst-row a {
+                color: #60a5fa !important;
+                text-decoration: none;
+                transition: color 0.15s ease;
+            }
+            .sfx-pst-row a:hover {
+                color: #93c5fd !important;
+                text-decoration: underline;
+            }
+            body:not(.sfx-pst-dark):not(.dark-theme) .sfx-pst-row a {
+                color: #2563eb !important;
+            }
+            body:not(.sfx-pst-dark):not(.dark-theme) .sfx-pst-row a:hover {
+                color: #1d4ed8 !important;
+            }
+
             .sinflix-res-header {
                 display: inline-flex;
                 align-items: center;
@@ -1725,6 +1757,8 @@
         const inputGoogleSuffix = wrap.querySelector('#sfx-input-google-suffix');
         const togglePstDark = wrap.querySelector('#sfx-toggle-pst-dark');
         const togglePstCopyOptions = wrap.querySelector('#sfx-toggle-pst-copy-options');
+        const toggleDarklabDark = wrap.querySelector('#sfx-toggle-darklab-dark');
+        const toggleDarklabCopyOptions = wrap.querySelector('#sfx-toggle-darklab-copy-options');
         const clearBtn = wrap.querySelector('#sfx-island-search-clear');
 
         let isFocused = false;
@@ -2016,6 +2050,26 @@
             togglePstCopyOptions.addEventListener('change', () => {
                 setSetting('sfx-pst-copy-options', togglePstCopyOptions.checked);
                 if (window.location.hostname.includes('pst.moe')) {
+                    window.location.reload();
+                }
+            });
+        }
+
+        if (toggleDarklabDark) {
+            toggleDarklabDark.checked = getSetting('sfx-darklab-dark-mode', false);
+            toggleDarklabDark.addEventListener('change', () => {
+                setSetting('sfx-darklab-dark-mode', toggleDarklabDark.checked);
+                if (window.location.hostname.includes('darklab.sh') || window.location.hostname.includes('0g.gg')) {
+                    applyPstDarkMode(toggleDarklabDark.checked);
+                }
+            });
+        }
+
+        if (toggleDarklabCopyOptions) {
+            toggleDarklabCopyOptions.checked = getSetting('sfx-darklab-copy-options', true);
+            toggleDarklabCopyOptions.addEventListener('change', () => {
+                setSetting('sfx-darklab-copy-options', toggleDarklabCopyOptions.checked);
+                if (window.location.hostname.includes('darklab.sh') || window.location.hostname.includes('0g.gg')) {
                     window.location.reload();
                 }
             });
@@ -2725,20 +2779,24 @@
         };
         if (document.body) appendPill();
         else document.addEventListener('DOMContentLoaded', appendPill);
-
         pill.addEventListener('click', () => {
             openMegaInFetchrr(window.location.href);
         });
-        function enhancePstMoeContent() {
-        const preElement = document.querySelector('pre');
+    }
+
+    function enhancePstMoeContent(targetPre) {
+        const isDarklab = window.location.hostname.includes('darklab.sh') || window.location.hostname.includes('0g.gg');
+        const settingKey = isDarklab ? 'sfx-darklab-copy-options' : 'sfx-pst-copy-options';
+        const isEnhancedEnabled = getSetting(settingKey, true);
+
+        const preElement = targetPre || document.querySelector('#prettyprint, #cleartext, pre');
         if (!preElement) return false;
 
-        if (preElement.dataset.sinflixProcessed) return true;
-        preElement.dataset.sinflixProcessed = 'true';
+        // Prevent duplicate containers
+        if (preElement.parentElement && preElement.parentElement.querySelector('.sfx-pst-container')) return true;
+        if (preElement.querySelector && preElement.querySelector('.sfx-pst-section')) return true;
 
-        const isEnhancedEnabled = getSetting('sfx-pst-copy-options', true);
         if (isEnhancedEnabled) {
-            preElement.classList.add('sfx-pst-processed');
             const selectCustomForPstGroup = (sectionEl, sectionLines) => {
                 cancelActiveSelection();
 
@@ -2806,7 +2864,7 @@
                 updatePstSelectionCount();
             };
 
-            const text = preElement.textContent;
+            const text = preElement.textContent || '';
             const lines = text.split('\n');
 
             const headerRegex = /^---\s+(.*?)(?:\s+\[(.*?)\])?\s+---/;
@@ -2841,10 +2899,28 @@
                 sections.push(currentSection);
             }
 
-            preElement.innerHTML = '';
-            preElement.style.background = 'transparent';
-            preElement.style.border = 'none';
-            preElement.style.padding = '0';
+            let targetMount = preElement;
+            if (isDarklab || preElement.id === 'prettyprint') {
+                const parent = preElement.parentElement || document.body;
+                parent.classList.remove('hidden');
+                parent.style.display = 'block';
+
+                let container = parent.querySelector('.sfx-pst-container');
+                if (!container) {
+                    container = document.createElement('div');
+                    container.className = 'sfx-pst-container';
+                    parent.appendChild(container);
+                }
+                container.innerHTML = '';
+                preElement.style.display = 'none';
+                targetMount = container;
+            } else {
+                preElement.innerHTML = '';
+                preElement.style.background = 'transparent';
+                preElement.style.border = 'none';
+                preElement.style.padding = '0';
+                preElement.classList.add('sfx-pst-processed');
+            }
 
             sections.forEach(section => {
                 const sectionEl = document.createElement('div');
@@ -2863,16 +2939,7 @@
                 header.className = 'sfx-pst-header';
 
                 let copyBtnHtml = '';
-                const allAreMega = sectionUrls.length > 0 && sectionUrls.every(url => {
-                    try {
-                        const parsed = new URL(url);
-                        return parsed.hostname.includes('mega.nz');
-                    } catch(e) {
-                        return url.includes('mega.nz');
-                    }
-                });
-
-                if (allAreMega) {
+                if (sectionUrls.length > 0) {
                     copyBtnHtml = `
                         <div class="sfx-copy-dropdown-container">
                             <button class="sfx-bh-copy-dropdown-trigger" title="Copy options">
@@ -2882,13 +2949,13 @@
                             </button>
                             <div class="sfx-copy-dropdown-menu">
                                 <button class="sfx-dropdown-item sfx-copy-all-item">
-                                    <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-                                    <span>Copy All Links</span>
+                                   <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                                   <span>Copy All Links</span>
                                 </button>
                                 <div class="sfx-dropdown-divider"></div>
                                 <button class="sfx-dropdown-item sfx-custom-select-item">
-                                    <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                                    <span>Select Custom</span>
+                                   <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                                   <span>Select Custom</span>
                                 </button>
                             </div>
                         </div>
@@ -2916,53 +2983,54 @@
                 `;
                 sectionEl.appendChild(header);
 
-                if (allAreMega) {
-                    const container = header.querySelector('.sfx-copy-dropdown-container');
-                    const trigger = container.querySelector('.sfx-bh-copy-dropdown-trigger');
-                    const menu = container.querySelector('.sfx-copy-dropdown-menu');
+                if (sectionUrls.length > 0) {
+                    const dropdownContainer = header.querySelector('.sfx-copy-dropdown-container');
+                    if (dropdownContainer) {
+                        const trigger = dropdownContainer.querySelector('.sfx-bh-copy-dropdown-trigger');
+                        const menu = dropdownContainer.querySelector('.sfx-copy-dropdown-menu');
 
-                    trigger.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
+                        trigger.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
 
-                        const isShown = menu.classList.contains('sfx-show');
-                        document.querySelectorAll('.sfx-copy-dropdown-menu.sfx-show').forEach(m => {
-                            m.classList.remove('sfx-show');
-                            m.parentElement.classList.remove('sfx-active');
+                            const isShown = menu.classList.contains('sfx-show');
+                            document.querySelectorAll('.sfx-copy-dropdown-menu.sfx-show').forEach(m => {
+                                m.classList.remove('sfx-show');
+                                m.parentElement.classList.remove('sfx-active');
+                            });
+
+                            if (!isShown) {
+                                menu.classList.add('sfx-show');
+                                dropdownContainer.classList.add('sfx-active');
+                            }
                         });
 
-                        if (!isShown) {
-                            menu.classList.add('sfx-show');
-                            container.classList.add('sfx-active');
-                        }
-                    });
+                        menu.querySelector('.sfx-copy-all-item').addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            menu.classList.remove('sfx-show');
+                            dropdownContainer.classList.remove('sfx-active');
 
-                    menu.querySelector('.sfx-copy-all-item').addEventListener('click', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        menu.classList.remove('sfx-show');
-                        container.classList.remove('sfx-active');
+                            if (sectionUrls.length > 0) {
+                                GM_setClipboard(sectionUrls.join('\n'), 'text');
+                                showProgressIsland(`Copied ${sectionUrls.length} link${sectionUrls.length !== 1 ? 's' : ''} successfully!`, 'success');
+                            }
+                        });
 
-                        if (sectionUrls.length > 0) {
-                            GM_setClipboard(sectionUrls.join('\n'), 'text');
-                            showProgressIsland(`Copied ${sectionUrls.length} link${sectionUrls.length !== 1 ? 's' : ''} successfully!`, 'success');
-                        }
-                    });
-
-                    menu.querySelector('.sfx-custom-select-item').addEventListener('click', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        menu.classList.remove('sfx-show');
-                        container.classList.remove('sfx-active');
-                        selectCustomForPstGroup(sectionEl, section.lines);
-                    });
+                        menu.querySelector('.sfx-custom-select-item').addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            menu.classList.remove('sfx-show');
+                            dropdownContainer.classList.remove('sfx-active');
+                            selectCustomForPstGroup(sectionEl, section.lines);
+                        });
+                    }
                 }
 
                 const contentDiv = document.createElement('div');
                 contentDiv.className = 'sfx-pst-content';
                 contentDiv.style.display = 'flex';
                 contentDiv.style.flexDirection = 'column';
-                contentDiv.style.gap = '4px';
 
                 section.lines.forEach(line => {
                     if (!line.trim()) {
@@ -2972,11 +3040,14 @@
                         return;
                     }
 
+                    const hasLink = /(https?:\/\/[^\s]+)/.test(line);
                     const row = document.createElement('div');
-                    row.className = 'sfx-pst-row';
+                    row.className = hasLink ? 'sfx-pst-row' : 'sfx-pst-text-line';
 
                     const contentSpan = document.createElement('span');
-                    contentSpan.className = 'sfx-pst-row-content';
+                    if (hasLink) {
+                        contentSpan.className = 'sfx-pst-row-content';
+                    }
 
                     linkRegex.lastIndex = 0;
                     let lastIndex = 0;
@@ -3034,7 +3105,7 @@
                 });
 
                 sectionEl.appendChild(contentDiv);
-                preElement.appendChild(sectionEl);
+                targetMount.appendChild(sectionEl);
             });
         } else {
             preElement.classList.remove('sfx-pst-processed');
@@ -3129,7 +3200,7 @@
             }
         }
 
-        // Shared click events setup for generated circles (whether original or enhanced)
+        // Shared click events setup for generated circles
         document.querySelectorAll('.sinflix-fd-dl-circle').forEach(circle => {
             if (circle.dataset.sfxListener) return;
             circle.dataset.sfxListener = 'true';
@@ -3151,7 +3222,7 @@
                 }
                 showProgressIsland('Opening FileDitch... will auto-download & close.', 'info', 5000);
                 setTimeout(() => circle.classList.remove('fd-loading'), 18000);
-                if (!w) showNotification('Popup blocked! Allow popups/tabs for pst.moe.', 'error', 6000);
+                if (!w) showNotification('Popup blocked! Allow popups/tabs for paste service.', 'error', 6000);
             });
         });
 
@@ -3176,12 +3247,10 @@
                 });
             });
         }
-    }
+        return true;
     }
 
     /* --- BuzzHeavier Enhancements & Retry Fallback --- */
-    const buzzDownloadUrlsCache = new Map();
-
     function showProgressIsland(message, statusType = 'progress', onConfirm = null, onCancel = null) {
         let island = document.getElementById('sfx-island-wrap');
         if (!island) {
@@ -3338,6 +3407,21 @@
                     island.style.display = 'none';
                 }
             }, 300);
+        }
+    }
+
+    function cancelActiveSelection() {
+        document.querySelectorAll('.sfx-checkbox-header-col, .sfx-checkbox-col, .sfx-pst-checkbox-col').forEach(el => el.remove());
+        const island = document.getElementById('sfx-island-wrap');
+        if (island) {
+            const actions = island.querySelector('.sfx-island-selection-actions');
+            if (actions) actions.remove();
+            if (island.className.includes('sfx-progress-mode')) {
+                const label = island.querySelector('#sfx-island-label');
+                if (label && label.textContent.startsWith('Selected:')) {
+                    hideProgressIsland(island);
+                }
+            }
         }
     }
 
@@ -3874,7 +3958,7 @@
 
             // --- Quality-based table splitting ---
             const qualityGroups = new Map();
-            let hasMultipleQualities = false;
+            let shouldApplyQualitySplit = false;
 
             if (getSetting('sfx-bh-quality-split', true)) {
                 rows.forEach(row => {
@@ -3885,10 +3969,10 @@
                     if (!qualityGroups.has(key)) qualityGroups.set(key, []);
                     qualityGroups.get(key).push(row);
                 });
-                hasMultipleQualities = qualityGroups.size > 1;
+                shouldApplyQualitySplit = qualityGroups.size > 0;
             }
 
-            if (hasMultipleQualities) {
+            if (shouldApplyQualitySplit) {
                 // Sort qualities descending (highest first), unknown (0) last
                 const sortedQualities = Array.from(qualityGroups.keys()).sort((a, b) => {
                     if (a === 0) return 1;
@@ -4315,6 +4399,49 @@
             return;
         }
 
+        if (host.includes('darklab.sh') || host.includes('0g.gg')) {
+            try {
+                if (getSetting('sfx-darklab-dark-mode', false)) applyPstDarkMode(true);
+
+                function tryEnhancePrivateBin() {
+                    const pre = document.querySelector('#prettyprint, #cleartext, pre');
+                    if (!pre) return false;
+
+                    if (document.querySelector('.sfx-pst-container') || document.querySelector('.sfx-pst-section')) return true;
+
+                    const text = (pre.textContent || '').trim();
+                    if (!text || text === '+++ no document text +++') return false;
+
+                    if (text.includes('---') || text.includes('http://') || text.includes('https://') || text.includes('###')) {
+                        const ok = enhancePstMoeContent(pre);
+                        if (ok && getSetting('sfx-darklab-dark-mode', false)) {
+                            applyPstDarkMode(true);
+                        }
+                        return ok;
+                    }
+                    return false;
+                }
+
+                if (!tryEnhancePrivateBin()) {
+                    const observer = new MutationObserver(() => {
+                        tryEnhancePrivateBin();
+                    });
+                    observer.observe(document.body || document.documentElement, { childList: true, subtree: true, characterData: true });
+
+                    let attempts = 0;
+                    const interval = setInterval(() => {
+                        attempts++;
+                        if (tryEnhancePrivateBin() || attempts > 60) {
+                            if (attempts > 60) {
+                                clearInterval(interval);
+                            }
+                        }
+                    }, 250);
+                }
+            } catch(e) { console.error('SinFlixModifier error on darklab.sh / 0g.gg:', e); }
+            return;
+        }
+
         if (host.includes('fileditchfiles.me')) {
             try { handleFileDitchPage(); } catch(e) { console.error('SinFlixModifier error on fileditchfiles.me:', e); }
             return;
@@ -4532,6 +4659,26 @@
                             <span class="sfx-switch-label">pst.moe Copy Options</span>
                             <label class="sfx-switch">
                                 <input type="checkbox" id="sfx-toggle-pst-copy-options">
+                                <span class="sfx-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- SECTION: DARKLAB / 0G.GG OPTIONS -->
+                    <div class="sfx-settings-section-title">p.darklab.sh / 0g.gg Options</div>
+                    <div class="sfx-settings-group">
+                        <div class="sfx-switch-row">
+                            <span class="sfx-switch-label">Dark Background</span>
+                            <label class="sfx-switch">
+                                <input type="checkbox" id="sfx-toggle-darklab-dark">
+                                <span class="sfx-slider"></span>
+                            </label>
+                        </div>
+                        <div class="sfx-settings-row-divider"></div>
+                        <div class="sfx-switch-row">
+                            <span class="sfx-switch-label">p.darklab.sh / 0g.gg Copy Options</span>
+                            <label class="sfx-switch">
+                                <input type="checkbox" id="sfx-toggle-darklab-copy-options">
                                 <span class="sfx-slider"></span>
                             </label>
                         </div>
