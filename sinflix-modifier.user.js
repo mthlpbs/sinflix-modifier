@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         SinFlix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.09.04.01
-// @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On BuzzHeavier folder pages: auto-splits episodes by quality (1080p/720p/540p etc.) into separate tables sorted highest-to-lowest. On pst.moe & p.darklab.sh / 0g.gg: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
+// @version      26.09.04.02
+// @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On BuzzHeavier folder pages: auto-splits episodes by quality (1080p/720p/540p etc.) into separate tables sorted highest-to-lowest. On pst.moe & p.darklab.sh: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
 // @match        https://rentry.co/sin-flix
@@ -11,8 +11,6 @@
 // @match        https://*.pst.moe/paste/*
 // @match        https://p.darklab.sh/*
 // @match        https://*.darklab.sh/*
-// @match        https://0g.gg/*
-// @match        https://*.0g.gg/*
 // @match        http://buzzheavier.com/*
 // @match        http://*.buzzheavier.com/*
 // @match        https://buzzheavier.com/*
@@ -1390,8 +1388,8 @@
         `;
     }
 
-    // Styles for pst.moe & p.darklab.sh / 0g.gg paste pages
-    if (window.location.hostname.includes('pst.moe') || window.location.hostname.includes('darklab.sh') || window.location.hostname.includes('0g.gg')) {
+    // Styles for pst.moe & p.darklab.sh paste pages
+    if (window.location.hostname.includes('pst.moe') || window.location.hostname.includes('darklab.sh')) {
         css += `
             /* --- pst.moe & PrivateBin Enhancements --- */
             .sfx-pst-container {
@@ -2063,7 +2061,7 @@
             toggleDarklabDark.checked = getSetting('sfx-darklab-dark-mode', false);
             toggleDarklabDark.addEventListener('change', () => {
                 setSetting('sfx-darklab-dark-mode', toggleDarklabDark.checked);
-                if (window.location.hostname.includes('darklab.sh') || window.location.hostname.includes('0g.gg')) {
+                if (window.location.hostname.includes('darklab.sh')) {
                     applyPstDarkMode(toggleDarklabDark.checked);
                 }
             });
@@ -2073,7 +2071,7 @@
             toggleDarklabCopyOptions.checked = getSetting('sfx-darklab-copy-options', true);
             toggleDarklabCopyOptions.addEventListener('change', () => {
                 setSetting('sfx-darklab-copy-options', toggleDarklabCopyOptions.checked);
-                if (window.location.hostname.includes('darklab.sh') || window.location.hostname.includes('0g.gg')) {
+                if (window.location.hostname.includes('darklab.sh')) {
                     window.location.reload();
                 }
             });
@@ -2789,7 +2787,7 @@
     }
 
     function enhancePstMoeContent(targetPre) {
-        const isDarklab = window.location.hostname.includes('darklab.sh') || window.location.hostname.includes('0g.gg');
+        const isDarklab = window.location.hostname.includes('darklab.sh');
         const settingKey = isDarklab ? 'sfx-darklab-copy-options' : 'sfx-pst-copy-options';
         const isEnhancedEnabled = getSetting(settingKey, true);
 
@@ -4457,7 +4455,7 @@
             return;
         }
 
-        if (host.includes('darklab.sh') || host.includes('0g.gg')) {
+        if (host.includes('darklab.sh')) {
             try {
                 if (getSetting('sfx-darklab-dark-mode', false)) applyPstDarkMode(true);
 
@@ -4496,7 +4494,7 @@
                         }
                     }, 250);
                 }
-            } catch(e) { console.error('SinFlixModifier error on darklab.sh / 0g.gg:', e); }
+            } catch(e) { console.error('SinFlixModifier error on darklab.sh:', e); }
             return;
         }
 
@@ -4722,8 +4720,8 @@
                         </div>
                     </div>
 
-                    <!-- SECTION: DARKLAB / 0G.GG OPTIONS -->
-                    <div class="sfx-settings-section-title">p.darklab.sh / 0g.gg Options</div>
+                    <!-- SECTION: DARKLAB OPTIONS -->
+                    <div class="sfx-settings-section-title">p.darklab.sh Options</div>
                     <div class="sfx-settings-group">
                         <div class="sfx-switch-row">
                             <span class="sfx-switch-label">Dark Background</span>
@@ -4734,7 +4732,7 @@
                         </div>
                         <div class="sfx-settings-row-divider"></div>
                         <div class="sfx-switch-row">
-                            <span class="sfx-switch-label">p.darklab.sh / 0g.gg Copy Options</span>
+                            <span class="sfx-switch-label">p.darklab.sh Copy Options</span>
                             <label class="sfx-switch">
                                 <input type="checkbox" id="sfx-toggle-darklab-copy-options">
                                 <span class="sfx-slider"></span>
