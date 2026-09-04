@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SinFlix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.07.12.03
+// @version      26.09.04.01
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On BuzzHeavier folder pages: auto-splits episodes by quality (1080p/720p/540p etc.) into separate tables sorted highest-to-lowest. On pst.moe & p.darklab.sh / 0g.gg: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
@@ -13,8 +13,12 @@
 // @match        https://*.darklab.sh/*
 // @match        https://0g.gg/*
 // @match        https://*.0g.gg/*
+// @match        http://buzzheavier.com/*
+// @match        http://*.buzzheavier.com/*
 // @match        https://buzzheavier.com/*
 // @match        https://*.buzzheavier.com/*
+// @match        *://*/*.mhtml*
+// @match        file:///*
 // @match        https://mega.nz/*
 // @match        https://*.mega.nz/*
 // @match        https://fetchrr.io/*
@@ -1926,7 +1930,7 @@
             }
         });
 
-        toggleBuzzheavierUI.checked = getSetting('sfx-buzzheavier-ui-enhancements', false);
+        toggleBuzzheavierUI.checked = getSetting('sfx-buzzheavier-ui-enhancements', true);
         toggleBuzzheavierUI.addEventListener('change', () => {
             setSetting('sfx-buzzheavier-ui-enhancements', toggleBuzzheavierUI.checked);
             if (window.location.hostname.includes('buzzheavier.com')) {
@@ -3251,6 +3255,8 @@
     }
 
     /* --- BuzzHeavier Enhancements & Retry Fallback --- */
+    const buzzDownloadUrlsCache = new Map();
+
     function showProgressIsland(message, statusType = 'progress', onConfirm = null, onCancel = null) {
         let island = document.getElementById('sfx-island-wrap');
         if (!island) {
@@ -3426,6 +3432,7 @@
     }
 
     function resolveBuzzDownloadUrlsFromDoc(doc, baseUrl) {
+        const base = (baseUrl && baseUrl.startsWith('http')) ? baseUrl : 'https://buzzheavier.com';
         let anchors = Array.from(doc.querySelectorAll('a[hx-get*="/download"]'));
         const seen = new Set();
         anchors = anchors.filter(a => {
@@ -3439,7 +3446,7 @@
             .map(endpoint => endpoint?.replace(/&amp;/g, '&'))
             .map(endpoint => {
                 try {
-                    return new URL(endpoint, baseUrl).href;
+                    return new URL(endpoint, base).href;
                 } catch {
                     return null;
                 }
@@ -3457,7 +3464,7 @@
         const currentUrl = window.location.href.split('?')[0].split('#')[0].replace(/\/$/, '');
         const normalizedPageUrl = pageUrl.split('?')[0].split('#')[0].replace(/\/$/, '');
 
-        if (normalizedPageUrl === currentUrl) {
+        if (normalizedPageUrl === currentUrl || !pageUrl.startsWith('http')) {
             const urls = resolveBuzzDownloadUrlsFromDoc(document, pageUrl);
             if (urls.length > 0) {
                 buzzDownloadUrlsCache.set(pageUrl, urls);
@@ -3514,9 +3521,11 @@
             }
 
             const htmxHeaders = {
-                "hx-current-url": pageUrl,
+                "HX-Request": "true",
                 "hx-request": "true",
-                "referer": pageUrl
+                "HX-Current-URL": pageUrl,
+                "hx-current-url": pageUrl,
+                "Referer": pageUrl
             };
 
             function extractRedirect(response) {
@@ -3528,6 +3537,9 @@
                 const bodyM = body.match(/["']?hx-redirect["']?\s*:\s*["']([^"']+)["']/i)
                            || body.match(/window\.location(?:\.href)?\s*=\s*["']([^"']+)["']/i);
                 if (bodyM && bodyM[1]) return bodyM[1].trim();
+                if (response.finalUrl && response.finalUrl !== downloadUrl && !response.finalUrl.includes('/download')) {
+                    return response.finalUrl;
+                }
                 return null;
             }
 
@@ -3633,7 +3645,11 @@
                         if (style === 'popup') {
                             window.open(directUrl, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
                         } else if (style === 'tab') {
-                            window.open(directUrl, '_blank');
+                            if (typeof GM_openInTab === 'function') {
+                                GM_openInTab(directUrl, { active: false, insert: true });
+                            } else {
+                                window.location.assign(directUrl);
+                            }
                         } else {
                             window.location.assign(directUrl);
                         }
@@ -3656,7 +3672,7 @@
             // ALWAYS add the styling class to body on buzzheavier.com since table styling has no on/off toggle
             document.body.classList.add('sfx-bh-enhanced');
 
-            const isEnhance = getSetting('sfx-buzzheavier-ui-enhancements', false);
+            const isEnhance = getSetting('sfx-buzzheavier-ui-enhancements', true);
 
             // Try by ID first (live BuzzHeavier page uses id="tbody"), fallback to first non-sfx tbody
             let tbody = document.getElementById('tbody');
@@ -4183,8 +4199,57 @@
             }
         } else if (isSinglePage) {
             const downloadRow = document.querySelector('.download-row');
+            const s1Btn = document.querySelector('a[hx-get*="/download"]:not([hx-get*="alt=true"])');
+            const s2Btn = document.querySelector('a[hx-get*="/download"][hx-get*="alt=true"]');
+            const previewBtn = document.querySelector('a[hx-get*="/preview"]');
+
+            const s1Hx = s1Btn ? s1Btn.getAttribute('hx-get') : '';
+            const s2Hx = s2Btn ? s2Btn.getAttribute('hx-get') : '';
+            const previewHx = previewBtn ? previewBtn.getAttribute('hx-get') : '';
+
+            let fileUrl = window.location.href;
+            if (!fileUrl.includes('buzzheavier.com')) {
+                const match = (s1Hx || '').match(/\/([a-zA-Z0-9_-]+)\/download/);
+                if (match) {
+                    fileUrl = `https://buzzheavier.com/${match[1]}`;
+                }
+            }
+
             if (!isEnhance) {
-                if (downloadRow) downloadRow.style.display = '';
+                if (downloadRow) {
+                    downloadRow.style.display = '';
+
+                    // Ensure native BuzzHeavier buttons work reliably even if native HTMX is blocked
+                    const dlBtn = downloadRow.querySelector('.download-btn');
+                    if (dlBtn && !dlBtn.dataset.sfxBound) {
+                        dlBtn.dataset.sfxBound = 'true';
+                        dlBtn.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            resolveWithFallback(fileUrl, 0, 'dl', this);
+                        });
+                    }
+
+                    const mirrorBtn = downloadRow.querySelector('a[hx-get*="alt=true"]');
+                    if (mirrorBtn && !mirrorBtn.dataset.sfxBound) {
+                        mirrorBtn.dataset.sfxBound = 'true';
+                        mirrorBtn.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            resolveWithFallback(fileUrl, 1, 'dl', this);
+                        });
+                    }
+
+                    const copyBtn = downloadRow.querySelector('.copy');
+                    if (copyBtn && !copyBtn.dataset.sfxBound) {
+                        copyBtn.dataset.sfxBound = 'true';
+                        copyBtn.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            resolveWithFallback(fileUrl, 0, 'copy', this);
+                        });
+                    }
+                }
                 const card = document.querySelector('.sfx-bh-single-card');
                 if (card) card.remove();
             } else {
@@ -4194,14 +4259,6 @@
 
                     const fileNameEl = document.querySelector('.file-name');
                     const fileName = fileNameEl ? fileNameEl.textContent.trim() : 'File Download';
-
-                    const s1Btn = document.querySelector('a[hx-get*="/download"]:not([hx-get*="alt=true"])');
-                    const s2Btn = document.querySelector('a[hx-get*="/download"][hx-get*="alt=true"]');
-                    const previewBtn = document.querySelector('a[hx-get*="/preview"]');
-
-                    const s1Hx = s1Btn ? s1Btn.getAttribute('hx-get') : '';
-                    const s2Hx = s2Btn ? s2Btn.getAttribute('hx-get') : '';
-                    const previewHx = previewBtn ? previewBtn.getAttribute('hx-get') : '';
 
                     downloadRow.style.display = 'none';
 
@@ -4275,8 +4332,6 @@
 
                     downloadRow.parentNode.insertBefore(card, downloadRow);
 
-                    const fileUrl = window.location.href;
-
                     card.querySelector('#sfx-s1-dl').addEventListener('click', function(e) {
                         e.preventDefault();
                         resolveWithFallback(fileUrl, 0, 'dl', this);
@@ -4299,7 +4354,7 @@
 
                     if (previewHx && card.querySelector('#sfx-preview-btn')) {
                         card.querySelector('#sfx-preview-btn').addEventListener('click', () => {
-                            const previewUrl = new URL(previewHx, window.location.href).href;
+                            const previewUrl = new URL(previewHx, fileUrl).href;
                             window.location.assign(previewUrl);
                         });
                     }
@@ -4319,8 +4374,11 @@
 
     function init() {
         const host = window.location.hostname;
+        const isBuzzheavier = host.includes('buzzheavier.com') ||
+                              document.querySelector('meta[name="application-name"][content="buzzheavier.com"]') !== null ||
+                              document.querySelector('.download-row a[hx-get*="/download"]') !== null;
 
-        if (host.includes('buzzheavier.com')) {
+        if (isBuzzheavier) {
             try {
                 let bhObserver = null;
                 let bhDebounce = null;
