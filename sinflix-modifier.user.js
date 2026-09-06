@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         SinFlix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.09.04.02
-// @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On BuzzHeavier folder pages: auto-splits episodes by quality (1080p/720p/540p etc.) into separate tables sorted highest-to-lowest. On pst.moe & p.darklab.sh: clickable links and copy-all-links per resolution. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
+// @version      26.09.06.06
+// @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On BuzzHeavier folder pages: auto-splits episodes by quality (1080p/720p/540p etc.) into separate tables sorted highest-to-lowest. On pst.moe, p.darklab.sh & 0g.gg: clickable links, same-tab opening, and copy-all-links per resolution. On Transfer.it: direct download links, PotPlayer stream integration, and batch copy utilities powered by Dynamic Island. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
 // @match        https://rentry.co/sin-flix
@@ -11,10 +11,18 @@
 // @match        https://*.pst.moe/paste/*
 // @match        https://p.darklab.sh/*
 // @match        https://*.darklab.sh/*
+// @match        http://0g.gg/*
+// @match        http://*.0g.gg/*
+// @match        https://0g.gg/*
+// @match        https://*.0g.gg/*
 // @match        http://buzzheavier.com/*
 // @match        http://*.buzzheavier.com/*
 // @match        https://buzzheavier.com/*
 // @match        https://*.buzzheavier.com/*
+// @match        http://transfer.it/*
+// @match        http://*.transfer.it/*
+// @match        https://transfer.it/*
+// @match        https://*.transfer.it/*
 // @match        *://*/*.mhtml*
 // @match        file:///*
 // @match        https://mega.nz/*
@@ -38,6 +46,8 @@
 
     // Module-level reference to buzzheavier's debounced enhance runner (set in init())
     let bhRunEnhance = null;
+    // Module-level reference to transfer.it's debounced enhance runner (set in init())
+    let tiRunEnhance = null;
 
     // Inject custom CSS styling
     let css = `
@@ -967,6 +977,85 @@
             background: rgba(255, 255, 255, 0.12) !important;
         }
 
+        /* --- Transfer.it: Hide top "Download all" icon in header --- */
+        .grid-header .js-download-all,
+        .info-header .js-download-all {
+            display: none !important;
+        }
+        .grid-header .info-header:not(:has(.link-name:not(:empty))) {
+            display: none !important;
+        }
+
+        /* --- Transfer.it Copy Button (Matches official .it-button.sm-size.ghost) --- */
+        .sfx-ti-copy-btn {
+            margin-right: 6px !important;
+            cursor: pointer !important;
+            flex-shrink: 0 !important;
+            transition: color 0.15s ease, background-color 0.15s ease, transform 0.15s ease !important;
+        }
+        .sfx-ti-copy-btn:hover {
+            transform: scale(1.08) !important;
+        }
+        .sfx-ti-copy-btn:active {
+            transform: scale(0.95) !important;
+        }
+        .sfx-ti-copy-btn svg {
+            width: 16px !important;
+            height: 16px !important;
+            fill: currentColor !important;
+            display: block !important;
+            pointer-events: none !important;
+        }
+        .sfx-ti-copy-btn.sfx-copied {
+            color: #4ade80 !important;
+        }
+
+        /* --- Transfer.it Summary Card & Toolbar Actions --- */
+        .sfx-ti-summary-actions {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 12px !important;
+            margin: 14px 0 !important;
+            width: 100% !important;
+        }
+        .sfx-ti-summary-btn {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 8px !important;
+            padding: 9px 18px !important;
+            border-radius: 10px !important;
+            font-size: 13px !important;
+            font-weight: 600 !important;
+            cursor: pointer !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+            background: rgba(30, 41, 59, 0.85) !important;
+            color: #e2e8f0 !important;
+            transition: all 0.2s ease !important;
+            backdrop-filter: blur(8px) !important;
+            font-family: inherit !important;
+        }
+        .sfx-ti-summary-btn:hover {
+            background: rgba(51, 65, 85, 0.95) !important;
+            color: #ffffff !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
+        }
+        .sfx-ti-summary-btn.sfx-copy-all:hover {
+            border-color: rgba(96, 165, 250, 0.4) !important;
+            color: #93c5fd !important;
+        }
+        .sfx-ti-summary-btn.sfx-copy-zip:hover {
+            border-color: rgba(74, 222, 128, 0.4) !important;
+            color: #86efac !important;
+        }
+        .sfx-ti-summary-btn svg {
+            width: 15px !important;
+            height: 15px !important;
+            fill: currentColor !important;
+        }
+
         /* --- BuzzHeavier Quality Split Tables --- */
         .sfx-quality-section {
             margin-bottom: 24px;
@@ -1388,8 +1477,8 @@
         `;
     }
 
-    // Styles for pst.moe & p.darklab.sh paste pages
-    if (window.location.hostname.includes('pst.moe') || window.location.hostname.includes('darklab.sh')) {
+    // Styles for pst.moe, p.darklab.sh & 0g.gg paste pages
+    if (window.location.hostname.includes('pst.moe') || window.location.hostname.includes('darklab.sh') || window.location.hostname.includes('0g.gg')) {
         css += `
             /* --- pst.moe & PrivateBin Enhancements --- */
             .sfx-pst-container {
@@ -1759,8 +1848,12 @@
         const inputGoogleSuffix = wrap.querySelector('#sfx-input-google-suffix');
         const togglePstDark = wrap.querySelector('#sfx-toggle-pst-dark');
         const togglePstCopyOptions = wrap.querySelector('#sfx-toggle-pst-copy-options');
+        const togglePstSameTab = wrap.querySelector('#sfx-toggle-pst-same-tab');
         const toggleDarklabDark = wrap.querySelector('#sfx-toggle-darklab-dark');
         const toggleDarklabCopyOptions = wrap.querySelector('#sfx-toggle-darklab-copy-options');
+        const toggleDarklabSameTab = wrap.querySelector('#sfx-toggle-darklab-same-tab');
+        const toggleTransferItUI = wrap.querySelector('#sfx-toggle-transferit-ui');
+        const toggleTransferItCopyAll = wrap.querySelector('#sfx-toggle-transferit-copy-all');
         const clearBtn = wrap.querySelector('#sfx-island-search-clear');
 
         let isFocused = false;
@@ -1970,6 +2063,28 @@
             });
         }
 
+        if (toggleTransferItUI) {
+            toggleTransferItUI.checked = getSetting('sfx-transferit-ui-enhancements', true);
+            toggleTransferItUI.addEventListener('change', () => {
+                setSetting('sfx-transferit-ui-enhancements', toggleTransferItUI.checked);
+                if (window.location.hostname.includes('transfer.it')) {
+                    if (typeof tiRunEnhance === 'function') tiRunEnhance();
+                    else enhanceTransferItContent();
+                }
+            });
+        }
+
+        if (toggleTransferItCopyAll) {
+            toggleTransferItCopyAll.checked = getSetting('sfx-transferit-copy-all', true);
+            toggleTransferItCopyAll.addEventListener('change', () => {
+                setSetting('sfx-transferit-copy-all', toggleTransferItCopyAll.checked);
+                if (window.location.hostname.includes('transfer.it')) {
+                    if (typeof tiRunEnhance === 'function') tiRunEnhance();
+                    else enhanceTransferItContent();
+                }
+            });
+        }
+
         selectDownloadStyle.value = getSetting('sfx-download-link-style', 'tab');
         selectDownloadStyle.addEventListener('change', () => {
             setSetting('sfx-download-link-style', selectDownloadStyle.value);
@@ -2057,11 +2172,18 @@
             });
         }
 
+        if (togglePstSameTab) {
+            togglePstSameTab.checked = getSetting('sfx-pst-open-same-tab', true);
+            togglePstSameTab.addEventListener('change', () => {
+                setSetting('sfx-pst-open-same-tab', togglePstSameTab.checked);
+            });
+        }
+
         if (toggleDarklabDark) {
             toggleDarklabDark.checked = getSetting('sfx-darklab-dark-mode', false);
             toggleDarklabDark.addEventListener('change', () => {
                 setSetting('sfx-darklab-dark-mode', toggleDarklabDark.checked);
-                if (window.location.hostname.includes('darklab.sh')) {
+                if (window.location.hostname.includes('darklab.sh') || window.location.hostname.includes('0g.gg')) {
                     applyPstDarkMode(toggleDarklabDark.checked);
                 }
             });
@@ -2071,9 +2193,16 @@
             toggleDarklabCopyOptions.checked = getSetting('sfx-darklab-copy-options', true);
             toggleDarklabCopyOptions.addEventListener('change', () => {
                 setSetting('sfx-darklab-copy-options', toggleDarklabCopyOptions.checked);
-                if (window.location.hostname.includes('darklab.sh')) {
+                if (window.location.hostname.includes('darklab.sh') || window.location.hostname.includes('0g.gg')) {
                     window.location.reload();
                 }
+            });
+        }
+
+        if (toggleDarklabSameTab) {
+            toggleDarklabSameTab.checked = getSetting('sfx-darklab-open-same-tab', true);
+            toggleDarklabSameTab.addEventListener('change', () => {
+                setSetting('sfx-darklab-open-same-tab', toggleDarklabSameTab.checked);
             });
         }
     }
@@ -2786,13 +2915,77 @@
         });
     }
 
+    function linkifyAndSetupAnchors(container, openSameTab) {
+        if (!container) return;
+
+        container.querySelectorAll('a[href]').forEach(a => {
+            if (openSameTab) a.target = '_self';
+            a.rel = 'noopener noreferrer';
+        });
+
+        const linkRegex = /(https?:\/\/[^\s<>"']+)/g;
+        const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+        const nodesToReplace = [];
+        let textNode;
+        while ((textNode = walker.nextNode())) {
+            if (textNode.parentNode && textNode.parentNode.tagName === 'A') continue;
+            if (linkRegex.test(textNode.nodeValue)) {
+                nodesToReplace.push(textNode);
+            }
+        }
+
+        nodesToReplace.forEach(node => {
+            const parent = node.parentNode;
+            if (!parent) return;
+            const text = node.nodeValue;
+            const fragment = document.createDocumentFragment();
+            let lastIdx = 0;
+            linkRegex.lastIndex = 0;
+            let m;
+            while ((m = linkRegex.exec(text)) !== null) {
+                if (m.index > lastIdx) {
+                    fragment.appendChild(document.createTextNode(text.slice(lastIdx, m.index)));
+                }
+                const a = document.createElement('a');
+                a.href = m[0];
+                a.textContent = m[0];
+                if (openSameTab) a.target = '_self';
+                else a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                fragment.appendChild(a);
+                lastIdx = m.index + m[0].length;
+            }
+            if (lastIdx < text.length) {
+                fragment.appendChild(document.createTextNode(text.slice(lastIdx)));
+            }
+            parent.replaceChild(fragment, node);
+        });
+    }
+
     function enhancePstMoeContent(targetPre) {
-        const isDarklab = window.location.hostname.includes('darklab.sh');
+        const isDarklab = window.location.hostname.includes('darklab.sh') || window.location.hostname.includes('0g.gg');
         const settingKey = isDarklab ? 'sfx-darklab-copy-options' : 'sfx-pst-copy-options';
+        const sameTabKey = isDarklab ? 'sfx-darklab-open-same-tab' : 'sfx-pst-open-same-tab';
         const isEnhancedEnabled = getSetting(settingKey, true);
+        const isOpenSameTab = getSetting(sameTabKey, true);
 
         const preElement = targetPre || document.querySelector('#prettyprint, #cleartext, pre');
         if (!preElement) return false;
+
+        const rawText = preElement.textContent || '';
+        const hasTransferIt = rawText.includes('transfer.it');
+        if (hasTransferIt) {
+            // If the paste has transfer.it links, do NOT show the copy UI / section dropdowns!
+            preElement.style.display = '';
+            if (preElement.parentElement) {
+                preElement.parentElement.classList.remove('hidden');
+                preElement.parentElement.style.display = 'block';
+                const existingContainer = preElement.parentElement.querySelector('.sfx-pst-container');
+                if (existingContainer) existingContainer.remove();
+            }
+            linkifyAndSetupAnchors(preElement, isOpenSameTab);
+            return true;
+        }
 
         // Prevent duplicate containers
         if (preElement.parentElement && preElement.parentElement.querySelector('.sfx-pst-container')) return true;
@@ -3064,16 +3257,25 @@
 
                         const anchor = document.createElement('a');
                         anchor.href = cleanUrl;
-                        const pstDlStyle = getSetting('sfx-download-link-style', 'tab');
-                        if (pstDlStyle === 'popup') {
+                        if (isOpenSameTab) {
+                            anchor.target = '_self';
                             anchor.addEventListener('click', function(e) {
+                                if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return;
                                 e.preventDefault();
-                                e.stopPropagation();
-                                sfxOpenPopup(this.href);
+                                window.location.href = this.href;
                             });
-                            anchor.removeAttribute('target');
                         } else {
-                            anchor.target = '_blank';
+                            const pstDlStyle = getSetting('sfx-download-link-style', 'tab');
+                            if (pstDlStyle === 'popup') {
+                                anchor.addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    sfxOpenPopup(this.href);
+                                });
+                                anchor.removeAttribute('target');
+                            } else {
+                                anchor.target = '_blank';
+                            }
                         }
                         anchor.rel = 'noopener noreferrer';
                         anchor.textContent = rawUrl;
@@ -3147,16 +3349,25 @@
 
                         const anchor = document.createElement('a');
                         anchor.href = cleanUrl;
-                        const pstDlStyle = getSetting('sfx-download-link-style', 'tab');
-                        if (pstDlStyle === 'popup') {
+                        if (isOpenSameTab) {
+                            anchor.target = '_self';
                             anchor.addEventListener('click', function(e) {
+                                if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return;
                                 e.preventDefault();
-                                e.stopPropagation();
-                                sfxOpenPopup(this.href);
+                                window.location.href = this.href;
                             });
-                            anchor.removeAttribute('target');
                         } else {
-                            anchor.target = '_blank';
+                            const pstDlStyle = getSetting('sfx-download-link-style', 'tab');
+                            if (pstDlStyle === 'popup') {
+                                anchor.addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    sfxOpenPopup(this.href);
+                                });
+                                anchor.removeAttribute('target');
+                            } else {
+                                anchor.target = '_blank';
+                            }
                         }
                         anchor.rel = 'noopener noreferrer';
                         anchor.textContent = rawUrl;
@@ -4370,6 +4581,403 @@
     }
 }
 
+    /* --- Transfer.it Enhancements & Link Resolution --- */
+    const transferItFilesCache = new Map();
+    const transferItLinksCache = new Map();
+
+    function getTransferItHandle() {
+        const pathM = window.location.pathname.match(/\/t\/([a-zA-Z0-9_-]+)/);
+        if (pathM) return pathM[1];
+        const hrefM = window.location.href.match(/\/t\/([a-zA-Z0-9_-]+)/);
+        if (hrefM) return hrefM[1];
+        const canonical = document.querySelector('link[rel="canonical"], meta[property="og:url"]');
+        if (canonical) {
+            const cMatch = (canonical.href || canonical.content || '').match(/\/t\/([a-zA-Z0-9_-]+)/);
+            if (cMatch) return cMatch[1];
+        }
+        return null;
+    }
+
+    function fetchTransferItFiles(xh, callback) {
+        if (transferItFilesCache.has(xh)) {
+            callback(transferItFilesCache.get(xh));
+            return;
+        }
+        const seq = Math.floor(Math.random() * 1000000);
+        GM_xmlhttpRequest({
+            method: "POST",
+            url: `https://bt7.api.mega.co.nz/cs?id=${seq}&x=${xh}`,
+            headers: { "Content-Type": "application/json" },
+            data: JSON.stringify([{ a: "f", c: 1, r: 1 }]),
+            onload: function(res) {
+                try {
+                    const json = JSON.parse(res.responseText);
+                    if (Array.isArray(json) && json[0] && Array.isArray(json[0].f)) {
+                        const allNodes = json[0].f;
+                        const fileNodes = allNodes.filter(n => n.t === 0);
+                        const rootNode = allNodes.find(n => n.t === 1);
+                        const result = { files: fileNodes, root: rootNode };
+                        transferItFilesCache.set(xh, result);
+                        callback(result);
+                    } else {
+                        callback(null);
+                    }
+                } catch (e) {
+                    console.error("Error parsing Transfer.it files:", e);
+                    callback(null);
+                }
+            },
+            onerror: function(err) {
+                console.error("Network error fetching Transfer.it files:", err);
+                callback(null);
+            }
+        });
+    }
+
+    function formatTransferItDirectUrl(baseUrl, filename) {
+        if (!baseUrl) return '';
+        if (!filename || filename === 'File') return baseUrl;
+        const cleanName = filename.replace(/[\/\\]/g, '_').trim();
+        const cleanBase = baseUrl.replace(/\/+$/, '');
+        const encodedName = encodeURIComponent(cleanName);
+        if (cleanBase.endsWith('/' + encodedName) || cleanBase.endsWith('/' + cleanName)) {
+            return cleanBase;
+        }
+        return `${cleanBase}/${encodedName}`;
+    }
+
+    function getTransferItFilename(itemOrHandle) {
+        if (itemOrHandle) {
+            let el = null;
+            if (typeof itemOrHandle === 'string') {
+                el = document.getElementById(itemOrHandle) || document.querySelector(`.it-grid-item[id="${itemOrHandle}"]`);
+            } else if (itemOrHandle.nodeType) {
+                el = itemOrHandle;
+            }
+            if (el) {
+                const nameEl = el.querySelector('.item-name, .md-font-size, .file-name, .title, .truncate');
+                if (nameEl && nameEl.textContent.trim()) {
+                    return nameEl.textContent.trim();
+                }
+            }
+        }
+        const readyBox = document.querySelector('.ready-to-download-box, .link-info');
+        if (readyBox) {
+            const titleEl = readyBox.querySelector('.title, .item-name');
+            if (titleEl && titleEl.textContent.trim()) {
+                return titleEl.textContent.trim();
+            }
+        }
+        return '';
+    }
+
+    function resolveTransferItDirectLink(xh, nodeHandle, callback, filename) {
+        const cacheKey = `${xh}:${nodeHandle}`;
+        const targetFilename = filename || getTransferItFilename(nodeHandle);
+
+        const attachName = (rawUrl) => {
+            return formatTransferItDirectUrl(rawUrl, targetFilename);
+        };
+
+        if (transferItLinksCache.has(cacheKey)) {
+            const cachedUrl = transferItLinksCache.get(cacheKey);
+            callback(attachName(cachedUrl));
+            return;
+        }
+        const seq = Math.floor(Math.random() * 1000000);
+        GM_xmlhttpRequest({
+            method: "POST",
+            url: `https://bt7.api.mega.co.nz/cs?id=${seq}&x=${xh}`,
+            headers: { "Content-Type": "application/json" },
+            data: JSON.stringify([{ a: "g", g: 1, ssl: 1, n: nodeHandle }]),
+            onload: function(res) {
+                try {
+                    const json = JSON.parse(res.responseText);
+                    if (Array.isArray(json) && json[0] && json[0].g) {
+                        const directUrl = json[0].g;
+                        transferItLinksCache.set(cacheKey, directUrl);
+                        callback(attachName(directUrl));
+                    } else {
+                        const fallbackName = targetFilename || 'download';
+                        const fallbackUrl = `https://bt7.api.mega.co.nz/cs/g?x=${xh}&n=${nodeHandle}&fn=${encodeURIComponent(fallbackName)}`;
+                        callback(fallbackUrl);
+                    }
+                } catch (e) {
+                    const fallbackName = targetFilename || 'download';
+                    const fallbackUrl = `https://bt7.api.mega.co.nz/cs/g?x=${xh}&n=${nodeHandle}&fn=${encodeURIComponent(fallbackName)}`;
+                    callback(fallbackUrl);
+                }
+            },
+            onerror: function() {
+                const fallbackName = targetFilename || 'download';
+                const fallbackUrl = `https://bt7.api.mega.co.nz/cs/g?x=${xh}&n=${nodeHandle}&fn=${encodeURIComponent(fallbackName)}`;
+                callback(fallbackUrl);
+            }
+        });
+    }
+
+    function resolveTransferItZipLink(xh, title, callback) {
+        const cacheKey = `${xh}:zip`;
+        if (transferItLinksCache.has(cacheKey)) {
+            callback(transferItLinksCache.get(cacheKey));
+            return;
+        }
+        const seq = Math.floor(Math.random() * 1000000);
+        GM_xmlhttpRequest({
+            method: "POST",
+            url: `https://bt7.api.mega.co.nz/cs?id=${seq}&x=${xh}`,
+            headers: { "Content-Type": "application/json" },
+            data: JSON.stringify([{ a: "xi", xh: xh }]),
+            onload: function(res) {
+                try {
+                    const json = JSON.parse(res.responseText);
+                    const info = Array.isArray(json) ? json[0] : json;
+                    if (info && info.z) {
+                        const zipNode = info.z;
+                        const zipName = encodeURIComponent((title || xh) + '.zip');
+                        const zipUrl = `https://bt7.api.mega.co.nz/cs/g?x=${xh}&n=${zipNode}&fn=${zipName}`;
+                        transferItLinksCache.set(cacheKey, zipUrl);
+                        callback(zipUrl);
+                    } else {
+                        callback(null);
+                    }
+                } catch (e) {
+                    console.error("Error resolving Transfer.it zip link:", e);
+                    callback(null);
+                }
+            },
+            onerror: function(err) {
+                console.error("Network error resolving Transfer.it zip link:", err);
+                callback(null);
+            }
+        });
+    }
+
+    function copyAllTransferItLinks(xh) {
+        showProgressIsland("Fetching Transfer.it files...", "progress");
+        fetchTransferItFiles(xh, (data) => {
+            if (!data || !data.files || data.files.length === 0) {
+                showProgressIsland("No files found in transfer", "error");
+                return;
+            }
+            const files = data.files;
+            const total = files.length;
+            showProgressIsland(`Resolving links: 0/${total}`, "progress");
+
+            const seq = Math.floor(Math.random() * 1000000);
+            const batchReq = files.map(f => ({ a: "g", g: 1, ssl: 1, n: f.h }));
+
+            GM_xmlhttpRequest({
+                method: "POST",
+                url: `https://bt7.api.mega.co.nz/cs?id=${seq}&x=${xh}`,
+                headers: { "Content-Type": "application/json" },
+                data: JSON.stringify(batchReq),
+                onload: function(res) {
+                    try {
+                        const responses = JSON.parse(res.responseText);
+                        const urls = [];
+                        if (Array.isArray(responses)) {
+                            responses.forEach((item, idx) => {
+                                const fileObj = files[idx];
+                                const nodeHandle = fileObj.h;
+                                const fn = getTransferItFilename(nodeHandle) || `file_${idx + 1}`;
+                                if (item && item.g) {
+                                    transferItLinksCache.set(`${xh}:${nodeHandle}`, item.g);
+                                    urls.push(formatTransferItDirectUrl(item.g, fn));
+                                } else {
+                                    urls.push(`https://bt7.api.mega.co.nz/cs/g?x=${xh}&n=${nodeHandle}&fn=${encodeURIComponent(fn)}`);
+                                }
+                            });
+                        }
+                        if (urls.length > 0) {
+                            GM_setClipboard(urls.join('\n'), 'text');
+                            showProgressIsland(`Copied ${urls.length} links successfully!`, "success");
+                        } else {
+                            showProgressIsland("Failed to resolve links", "error");
+                        }
+                    } catch (e) {
+                        showProgressIsland("Error resolving bulk links", "error");
+                    }
+                },
+                onerror: function() {
+                    showProgressIsland("Network error resolving links", "error");
+                }
+            });
+        });
+    }
+
+    function copyZippedTransferItLink(xh) {
+        const titleEl = document.querySelector('.ready-to-download-box .title, .link-info .title');
+        const title = titleEl ? titleEl.textContent.trim() : 'Transfer';
+        showProgressIsland("Resolving Zip link...", "progress");
+        resolveTransferItZipLink(xh, title, (zipUrl) => {
+            if (zipUrl) {
+                GM_setClipboard(zipUrl, 'text');
+                showProgressIsland("Copied Zip download link!", "success");
+            } else {
+                showProgressIsland("No Zip link available", "error");
+            }
+        });
+    }
+
+    function handleTransferItCopyAction(xh, nodeHandle, filename, btnEl) {
+        const safeName = filename || getTransferItFilename(nodeHandle) || 'File';
+        showProgressIsland(`Resolving link: ${safeName}...`, "progress");
+        resolveTransferItDirectLink(xh, nodeHandle, (directUrl) => {
+            if (directUrl) {
+                GM_setClipboard(directUrl, 'text');
+                showProgressIsland(`Copied link: ${safeName}`, "success");
+                if (btnEl) {
+                    btnEl.classList.add('sfx-copied');
+                    const origSvg = btnEl.innerHTML;
+                    btnEl.innerHTML = `<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
+                    setTimeout(() => {
+                        btnEl.classList.remove('sfx-copied');
+                        btnEl.innerHTML = origSvg;
+                    }, 1500);
+                }
+            } else {
+                showProgressIsland("Failed to resolve link", "error");
+            }
+        }, safeName);
+    }
+
+    function enhanceTransferItContent() {
+        const xh = getTransferItHandle();
+        if (!xh) return;
+
+        const isEnhance = getSetting('sfx-transferit-ui-enhancements', true);
+        const isCopyAll = getSetting('sfx-transferit-copy-all', true);
+
+        if (!isEnhance) {
+            document.querySelectorAll('.sfx-ti-copy-btn, .sfx-ti-summary-actions, .sfx-ti-row-capsule').forEach(el => el.remove());
+            return;
+        }
+
+        // Remove top "download all" icon in header
+        const topDownloadAllBtns = document.querySelectorAll('.grid-header .js-download-all, .info-header .js-download-all');
+        topDownloadAllBtns.forEach(btn => {
+            const parentHeader = btn.closest('.info-header');
+            btn.remove();
+            if (parentHeader) {
+                const linkName = parentHeader.querySelector('.link-name');
+                if (!linkName || !linkName.textContent.trim()) {
+                    parentHeader.style.display = 'none';
+                }
+            }
+        });
+
+        // 1. Summary Card Enhancement
+        const readyBox = document.querySelector('.ready-to-download-box');
+        if (readyBox) {
+            const footer = readyBox.querySelector('footer');
+            if (footer && !readyBox.querySelector('.sfx-ti-summary-actions')) {
+                const summaryActions = document.createElement('div');
+                summaryActions.className = 'sfx-ti-summary-actions';
+                summaryActions.innerHTML = `
+                    ${isCopyAll ? `
+                    <button class="sfx-ti-summary-btn sfx-copy-all" title="Copy All Direct Links">
+                        <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                        Copy All Links
+                    </button>` : ''}
+                    <button class="sfx-ti-summary-btn sfx-copy-zip" title="Copy Zipped Link">
+                        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                        Copy Zipped Link
+                    </button>
+                `;
+
+                const copyAllBtn = summaryActions.querySelector('.sfx-copy-all');
+                if (copyAllBtn) {
+                    copyAllBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        copyAllTransferItLinks(xh);
+                    });
+                }
+
+                const copyZipBtn = summaryActions.querySelector('.sfx-copy-zip');
+                if (copyZipBtn) {
+                    copyZipBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        copyZippedTransferItLink(xh);
+                    });
+                }
+
+                footer.parentNode.insertBefore(summaryActions, footer.nextSibling);
+            }
+        }
+
+        // 2. File Listing View: Toolbar above grid if present
+        const scrollArea = document.querySelector('.desktop-scroll-area');
+        const grid = scrollArea ? scrollArea.querySelector('.it-grid') : null;
+        if (grid && !scrollArea.querySelector('.sfx-ti-summary-actions')) {
+            const gridToolbar = document.createElement('div');
+            gridToolbar.className = 'sfx-ti-summary-actions';
+            gridToolbar.innerHTML = `
+                ${isCopyAll ? `
+                <button class="sfx-ti-summary-btn sfx-copy-all" title="Copy All Direct Links">
+                    <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                    Copy All Links
+                </button>` : ''}
+                <button class="sfx-ti-summary-btn sfx-copy-zip" title="Copy Zipped Link">
+                    <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                    Copy Zipped Link
+                </button>
+            `;
+
+            gridToolbar.querySelector('.sfx-copy-all')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                copyAllTransferItLinks(xh);
+            });
+
+            gridToolbar.querySelector('.sfx-copy-zip')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                copyZippedTransferItLink(xh);
+            });
+
+            grid.parentNode.insertBefore(gridToolbar, grid);
+        }
+
+        // 3. File Grid Items Enhancement: Single Copy Button matching official Download UI
+        const gridItems = document.querySelectorAll('.it-grid-item');
+        gridItems.forEach(item => {
+            if (item.querySelector('.sfx-ti-copy-btn')) return;
+
+            const nodeHandle = item.id;
+            if (!nodeHandle) return;
+
+            const filename = getTransferItFilename(item) || 'File';
+            const dlBtn = item.querySelector('.js-download');
+            const dataBody = item.querySelector('.item-data-body') || item;
+
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'it-button sm-size ghost sfx-ti-copy-btn';
+            copyBtn.setAttribute('aria-label', 'Copy Link');
+            copyBtn.title = `Copy Direct Link: ${filename}`;
+            copyBtn.innerHTML = `
+                <svg viewBox="0 0 24 24">
+                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                </svg>
+            `;
+
+            copyBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const currentName = getTransferItFilename(item) || filename;
+                handleTransferItCopyAction(xh, nodeHandle, currentName, copyBtn);
+            });
+
+            if (dlBtn && dlBtn.parentNode) {
+                dlBtn.parentNode.insertBefore(copyBtn, dlBtn);
+            } else {
+                dataBody.appendChild(copyBtn);
+            }
+        });
+    }
+
     function init() {
         const host = window.location.hostname;
         const isBuzzheavier = host.includes('buzzheavier.com') ||
@@ -4445,9 +5053,85 @@
             return;
         }
 
+        const isTransferIt = host.includes('transfer.it') ||
+                             document.querySelector('meta[name="apple-mobile-web-app-title"][content*="Transfer"]') !== null;
+
+        if (isTransferIt) {
+            try {
+                let tiObserver = null;
+                let tiDebounce = null;
+
+                function runEnhance() {
+                    if (tiObserver) tiObserver.disconnect();
+                    try {
+                        enhanceTransferItContent();
+                    } catch(e) {
+                        console.error('SinFlixModifier error on transfer.it:', e);
+                    } finally {
+                        if (tiObserver) {
+                            tiObserver.observe(document.body, { childList: true, subtree: true });
+                        }
+                    }
+                }
+
+                tiRunEnhance = runEnhance;
+
+                tiObserver = new MutationObserver((mutations) => {
+                    const ignore = mutations.every(m => {
+                        const target = m.target;
+                        const el = target.nodeType === Node.ELEMENT_NODE ? target : target.parentElement;
+                        if (!el) return false;
+
+                        if (target === document.body) {
+                            const nodes = Array.from(m.addedNodes).concat(Array.from(m.removedNodes));
+                            const allIgnored = nodes.every(node => {
+                                if (node.nodeType !== Node.ELEMENT_NODE) return true;
+                                return node.id === 'sfx-island-wrap' ||
+                                       node.classList?.contains('sfx-ti-copy-btn') ||
+                                       node.classList?.contains('sfx-ti-summary-actions');
+                            });
+                            if (allIgnored) return true;
+                        }
+
+                        return el.closest('#sfx-island-wrap') ||
+                               el.closest('.sfx-ti-copy-btn') ||
+                               el.closest('.sfx-ti-summary-actions');
+                    });
+                    if (ignore) return;
+
+                    clearTimeout(tiDebounce);
+                    tiDebounce = setTimeout(runEnhance, 120);
+                });
+
+                runEnhance();
+                tiObserver.observe(document.body, { childList: true, subtree: true });
+            } catch(e) {
+                console.error('SinFlixModifier error on transfer.it:', e);
+            }
+            return;
+        }
+
 
         if (host.includes('pst.moe')) {
             try {
+                if (getSetting('sfx-pst-open-same-tab', true)) {
+                    document.addEventListener('click', (e) => {
+                        if (!getSetting('sfx-pst-open-same-tab', true)) return;
+                        if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return;
+
+                        const anchor = e.target.closest('a[href]');
+                        if (!anchor) return;
+
+                        const rawHref = anchor.getAttribute('href');
+                        if (!rawHref || rawHref.startsWith('#') || rawHref.startsWith('javascript:')) return;
+
+                        anchor.target = '_self';
+                        e.preventDefault();
+                        e.stopPropagation();
+                        window.location.href = anchor.href;
+                    }, true);
+                }
+
                 enhancePstMoeContent();
                 // Apply dark mode on load if enabled
                 if (getSetting('sfx-pst-dark-mode', false)) applyPstDarkMode(true);
@@ -4455,18 +5139,53 @@
             return;
         }
 
-        if (host.includes('darklab.sh')) {
+        if (host.includes('darklab.sh') || host.includes('0g.gg')) {
             try {
                 if (getSetting('sfx-darklab-dark-mode', false)) applyPstDarkMode(true);
+
+                if (getSetting('sfx-darklab-open-same-tab', true)) {
+                    document.addEventListener('click', (e) => {
+                        if (!getSetting('sfx-darklab-open-same-tab', true)) return;
+                        if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return;
+
+                        const anchor = e.target.closest('a[href]');
+                        if (!anchor) return;
+
+                        const rawHref = anchor.getAttribute('href');
+                        if (!rawHref || rawHref.startsWith('#') || rawHref.startsWith('javascript:')) return;
+
+                        anchor.target = '_self';
+                        e.preventDefault();
+                        e.stopPropagation();
+                        window.location.href = anchor.href;
+                    }, true);
+                }
 
                 function tryEnhancePrivateBin() {
                     const pre = document.querySelector('#prettyprint, #cleartext, pre');
                     if (!pre) return false;
 
-                    if (document.querySelector('.sfx-pst-container') || document.querySelector('.sfx-pst-section')) return true;
-
                     const text = (pre.textContent || '').trim();
                     if (!text || text === '+++ no document text +++') return false;
+
+                    if (text.includes('transfer.it')) {
+                        // Transfer.it links present: do NOT show copy section / custom UI!
+                        if (getSetting('sfx-darklab-dark-mode', false)) {
+                            applyPstDarkMode(true);
+                        }
+                        const parent = pre.parentElement;
+                        if (parent) {
+                            parent.classList.remove('hidden');
+                            parent.style.display = 'block';
+                            const existing = parent.querySelector('.sfx-pst-container');
+                            if (existing) existing.remove();
+                        }
+                        pre.style.display = '';
+                        linkifyAndSetupAnchors(pre, getSetting('sfx-darklab-open-same-tab', true));
+                        return true;
+                    }
+
+                    if (document.querySelector('.sfx-pst-container') || document.querySelector('.sfx-pst-section')) return true;
 
                     if (text.includes('---') || text.includes('http://') || text.includes('https://') || text.includes('###')) {
                         const ok = enhancePstMoeContent(pre);
@@ -4494,7 +5213,7 @@
                         }
                     }, 250);
                 }
-            } catch(e) { console.error('SinFlixModifier error on darklab.sh:', e); }
+            } catch(e) { console.error('SinFlixModifier error on darklab.sh / 0g.gg:', e); }
             return;
         }
 
@@ -4700,6 +5419,26 @@
                         </div>
                     </div>
 
+                    <!-- SECTION: TRANSFER.IT OPTIONS -->
+                    <div class="sfx-settings-section-title">Transfer.it Options</div>
+                    <div class="sfx-settings-group">
+                        <div class="sfx-switch-row">
+                            <span class="sfx-switch-label">Transfer.it Copy Buttons</span>
+                            <label class="sfx-switch">
+                                <input type="checkbox" id="sfx-toggle-transferit-ui" checked>
+                                <span class="sfx-slider"></span>
+                            </label>
+                        </div>
+                        <div class="sfx-settings-row-divider"></div>
+                        <div class="sfx-switch-row">
+                            <span class="sfx-switch-label">Transfer.it Copy All Links</span>
+                            <label class="sfx-switch">
+                                <input type="checkbox" id="sfx-toggle-transferit-copy-all" checked>
+                                <span class="sfx-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
                     <!-- SECTION: PST.MOE OPTIONS -->
                     <div class="sfx-settings-section-title">pst.moe Options</div>
                     <div class="sfx-settings-group">
@@ -4714,14 +5453,22 @@
                         <div class="sfx-switch-row">
                             <span class="sfx-switch-label">pst.moe Copy Options</span>
                             <label class="sfx-switch">
-                                <input type="checkbox" id="sfx-toggle-pst-copy-options">
+                                <input type="checkbox" id="sfx-toggle-pst-copy-options" checked>
+                                <span class="sfx-slider"></span>
+                            </label>
+                        </div>
+                        <div class="sfx-settings-row-divider"></div>
+                        <div class="sfx-switch-row">
+                            <span class="sfx-switch-label">Open Links in Same Tab</span>
+                            <label class="sfx-switch">
+                                <input type="checkbox" id="sfx-toggle-pst-same-tab" checked>
                                 <span class="sfx-slider"></span>
                             </label>
                         </div>
                     </div>
 
                     <!-- SECTION: DARKLAB OPTIONS -->
-                    <div class="sfx-settings-section-title">p.darklab.sh Options</div>
+                    <div class="sfx-settings-section-title">p.darklab.sh / 0g.gg Options</div>
                     <div class="sfx-settings-group">
                         <div class="sfx-switch-row">
                             <span class="sfx-switch-label">Dark Background</span>
@@ -4732,9 +5479,17 @@
                         </div>
                         <div class="sfx-settings-row-divider"></div>
                         <div class="sfx-switch-row">
-                            <span class="sfx-switch-label">p.darklab.sh Copy Options</span>
+                            <span class="sfx-switch-label">p.darklab.sh / 0g.gg Copy Options</span>
                             <label class="sfx-switch">
-                                <input type="checkbox" id="sfx-toggle-darklab-copy-options">
+                                <input type="checkbox" id="sfx-toggle-darklab-copy-options" checked>
+                                <span class="sfx-slider"></span>
+                            </label>
+                        </div>
+                        <div class="sfx-settings-row-divider"></div>
+                        <div class="sfx-switch-row">
+                            <span class="sfx-switch-label">Open Links in Same Tab</span>
+                            <label class="sfx-switch">
+                                <input type="checkbox" id="sfx-toggle-darklab-same-tab" checked>
                                 <span class="sfx-slider"></span>
                             </label>
                         </div>
