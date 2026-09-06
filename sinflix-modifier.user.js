@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SinFlix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.09.06.06
+// @version      26.09.06.08
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On BuzzHeavier folder pages: auto-splits episodes by quality (1080p/720p/540p etc.) into separate tables sorted highest-to-lowest. On pst.moe, p.darklab.sh & 0g.gg: clickable links, same-tab opening, and copy-all-links per resolution. On Transfer.it: direct download links, PotPlayer stream integration, and batch copy utilities powered by Dynamic Island. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
@@ -689,20 +689,20 @@
             text-shadow: 0 0 8px rgba(48, 209, 88, 0.4);
         }
 
-        /* --- Single Popover Menu --- */
+        /* --- Minimal Single Popover Menu --- */
         #sfx-popover-menu {
             position: absolute;
             z-index: 10001;
             display: none;
             flex-direction: column;
-            width: 200px;
-            background: rgba(15, 15, 20, 0.88);
-            border: 1px solid rgba(255, 255, 255, 0.14);
-            border-radius: 14px;
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.25);
-            backdrop-filter: blur(20px) saturate(180%);
-            -webkit-backdrop-filter: blur(20px) saturate(180%);
-            padding: 8px;
+            width: 224px;
+            background: rgba(18, 18, 24, 0.92);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 13px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(24px) saturate(190%);
+            -webkit-backdrop-filter: blur(24px) saturate(190%);
+            padding: 7px 9px;
             box-sizing: border-box;
             opacity: 0;
             transform: scale(0.95);
@@ -714,50 +714,106 @@
             opacity: 1;
             transform: scale(1);
         }
+        .sfx-popover-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            min-height: 22px;
+        }
         .sfx-popover-title {
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
-            font-size: 11px;
+            font-size: 11.5px;
             font-weight: 600;
-            color: rgba(255, 255, 255, 0.45);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            padding: 4px 8px;
+            color: rgba(255, 255, 255, 0.95);
+            letter-spacing: 0.2px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            flex: 1;
+            padding-left: 2px;
         }
-        .sfx-popover-divider {
-            height: 0.5px;
-            background: rgba(255, 255, 255, 0.12);
-            margin: 6px 0;
-        }
-        .sfx-popover-btn {
+        .sfx-popover-copy-btn {
             background: transparent !important;
             border: none !important;
             outline: none !important;
             box-shadow: none !important;
             cursor: pointer;
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            gap: 10px;
-            width: 100%;
-            padding: 8px 10px;
-            border-radius: 8px;
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
-            font-size: 13px;
-            font-weight: 500;
-            color: rgba(255, 255, 255, 0.85);
-            text-align: left;
-            transition: background 0.2s, color 0.2s;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            border-radius: 5px;
+            color: rgba(255, 255, 255, 0.65);
+            flex-shrink: 0;
+            padding: 0;
+            transition: background 0.18s, color 0.18s, transform 0.15s;
         }
-        .sfx-popover-btn:hover {
-            background: rgba(255, 255, 255, 0.08);
+        .sfx-popover-copy-btn:hover {
+            background: rgba(255, 255, 255, 0.12) !important;
             color: #ffffff;
         }
-        .sfx-popover-btn svg {
+        .sfx-popover-copy-btn:active {
+            transform: scale(0.92);
+        }
+        .sfx-popover-copy-btn svg {
+            width: 13px;
+            height: 13px;
+            fill: currentColor;
+            flex-shrink: 0;
+        }
+        .sfx-popover-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.09);
+            margin: 5px 0 6px 0;
+        }
+        .sfx-popover-search-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 1px 2px;
+        }
+        .sfx-popover-search-label {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+            font-size: 11.5px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.55);
+            white-space: nowrap;
+        }
+        .sfx-popover-icons {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .sfx-popover-icon-btn {
+            background: rgba(255, 255, 255, 0.06) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            outline: none !important;
+            box-shadow: none !important;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 26px;
+            height: 26px;
+            border-radius: 7px;
+            padding: 0;
+            transition: background 0.18s, border-color 0.18s, transform 0.15s, box-shadow 0.18s;
+        }
+        .sfx-popover-icon-btn:hover {
+            background: rgba(255, 255, 255, 0.14) !important;
+            border-color: rgba(255, 255, 255, 0.25) !important;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35) !important;
+        }
+        .sfx-popover-icon-btn:active {
+            transform: scale(0.94);
+        }
+        .sfx-popover-icon-btn svg {
             width: 15px;
             height: 15px;
-            fill: currentColor;
             flex-shrink: 0;
         }
 
@@ -5504,24 +5560,27 @@
         const popover = document.createElement('div');
         popover.id = 'sfx-popover-menu';
         popover.innerHTML = `
-            <div class="sfx-popover-title">Options</div>
+            <div class="sfx-popover-header">
+                <span class="sfx-popover-title">Options</span>
+                <button class="sfx-popover-copy-btn" id="sfx-popover-copy" title="Copy Drama Name">
+                    <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                </button>
+            </div>
             <div class="sfx-popover-divider"></div>
-            <button class="sfx-popover-btn" id="sfx-popover-google">
-                <svg viewBox="0 0 24 24"><path d="M12.54 10.24h9.3c.09.53.14 1.1.14 1.8 0 5.7-3.82 9.76-9.44 9.76-5.52 0-10-4.48-10-10s4.48-10 10-10c2.7 0 4.96.99 6.69 2.61l-2.7 2.61c-.72-.69-1.98-1.5-3.99-1.5-3.48 0-6.31 2.89-6.31 6.45s2.83 6.45 6.31 6.45c4.04 0 5.56-2.9 5.8-4.38H12.54v-3.8z"/></svg>
-                Search Google
-            </button>
-            <button class="sfx-popover-btn" id="sfx-popover-mdl">
-                <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.53c-.26-.81-1-1.4-1.9-1.4h-1v-3c0-.55-.45-1-1-1h-6v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.4z"/></svg>
-                Search MyDramaList
-            </button>
-            <button class="sfx-popover-btn" id="sfx-popover-imdb">
-                <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-8.5 12.5h-1.5v-5H9v5H7.5v-5H6v5H4.5v-6h6v6zm6 0h-2v-5H13v5h-1.5v-6h4.5v6zm-4.5-6v-1.5h3v1.5h-3z"/></svg>
-                Search IMDb
-            </button>
-            <button class="sfx-popover-btn" id="sfx-popover-copy">
-                <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-                Copy Name
-            </button>
+            <div class="sfx-popover-search-row">
+                <span class="sfx-popover-search-label">Search with</span>
+                <div class="sfx-popover-icons">
+                    <button class="sfx-popover-icon-btn" id="sfx-popover-google" title="Search Google">
+                        <svg viewBox="-3 0 262 262" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid"><path d="M255.878 133.451c0-10.734-.871-18.567-2.756-26.69H130.55v48.448h71.947c-1.45 12.04-9.283 30.172-26.69 42.356l-.244 1.622 38.755 30.023 2.685.268c24.659-22.774 38.875-56.282 38.875-96.027" fill="#4285F4"/><path d="M130.55 261.1c35.248 0 64.839-11.605 86.453-31.622l-41.196-31.913c-11.024 7.688-25.82 13.055-45.257 13.055-34.523 0-63.824-22.773-74.269-54.25l-1.531.13-40.298 31.187-.527 1.465C35.393 231.798 79.49 261.1 130.55 261.1" fill="#34A853"/><path d="M56.281 156.37c-2.756-8.123-4.351-16.827-4.351-25.82 0-8.994 1.595-17.697 4.206-25.82l-.073-1.73L15.26 71.312l-1.335.635C5.077 89.644 0 109.517 0 130.55s5.077 40.905 13.925 58.602l42.356-32.782" fill="#FBBC05"/><path d="M130.55 50.479c24.514 0 41.05 10.589 50.479 19.438l36.844-35.974C195.245 12.91 165.798 0 130.55 0 79.49 0 35.393 29.301 13.925 71.947l42.211 32.783c10.59-31.477 39.891-54.251 74.414-54.251" fill="#EB4335"/></svg>
+                    </button>
+                    <button class="sfx-popover-icon-btn" id="sfx-popover-mdl" title="Search MyDramaList">
+                        <svg viewBox="0 0 48 48" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path fill="none" d="M38.5 5.5h-29a4 4 0 0 0-4 4v29a4 4 0 0 0 4 4h29a4 4 0 0 0 4-4v-29a4 4 0 0 0-4-4"/><path fill="none" d="M9.5 29.591V18.396l5.604 11.208l5.604-11.191v11.191m2.382 0V18.396h2.521a4.903 4.903 0 0 1 4.903 4.904v1.4a4.903 4.903 0 0 1-4.903 4.904zm9.806-11.208v11.208H38.5"/></svg>
+                    </button>
+                    <button class="sfx-popover-icon-btn" id="sfx-popover-imdb" title="Search IMDb">
+                        <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-label="IMDb" role="img"><rect width="512" height="512" rx="15%" fill="#f5c518"/><path fill="#000000" d="M104 328V184H64v144zM189 184l-9 67-5-36-5-31h-50v144h34v-95l14 95h25l13-97v97h34V184zM256 328V184h62c15 0 26 11 26 25v94c0 14-11 25-26 25zm47-118l-9-1v94c5 0 9-1 10-3 2-2 2-8 2-18v-56-12l-3-4zM419 220h3c14 0 26 11 26 25v58c0 14-12 25-26 25h-3c-8 0-16-4-21-11l-2 9h-36V184h38v46c5-6 13-10 21-10zm-8 70v-34l-1-11c-1-2-4-3-6-3s-5 1-6 3v57c1 2 4 3 6 3s6-1 6-3l1-12z"/></svg>
+                    </button>
+                </div>
+            </div>
         `;
         document.body.appendChild(popover);
 
@@ -5575,11 +5634,13 @@
             }
             const btn = popover.querySelector('#sfx-popover-copy');
             const origHTML = btn.innerHTML;
-            btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> Copied!`;
+            btn.innerHTML = `<svg viewBox="0 0 24 24"><path fill="#30d158" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
+            btn.title = 'Copied!';
             setTimeout(() => {
                 btn.innerHTML = origHTML;
+                btn.title = 'Copy Drama Name';
                 hidePopover();
-            }, 800);
+            }, 700);
         });
 
         // Click handler to open the options popover when title is clicked
@@ -5589,7 +5650,10 @@
                 e.stopPropagation();
                 activeDramaName = titleEl.getAttribute('data-name');
                 const titleLabel = popover.querySelector('.sfx-popover-title');
-                if (titleLabel) titleLabel.textContent = activeDramaName;
+                if (titleLabel) {
+                    titleLabel.textContent = activeDramaName;
+                    titleLabel.title = activeDramaName;
+                }
 
                 popover.style.display = 'flex';
                 setTimeout(() => {
@@ -5597,8 +5661,8 @@
                 }, 10);
 
                 const rect = titleEl.getBoundingClientRect();
-                const menuWidth = 200;
-                const menuHeight = 164;
+                const menuWidth = 224;
+                const menuHeight = 68;
                 let left = rect.left + window.scrollX + (rect.width / 2) - (menuWidth / 2);
                 let top = rect.bottom + window.scrollY + 6;
 
