@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SinFlix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.09.21
+// @version      26.09.22
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On BuzzHeavier folder pages: auto-splits episodes by quality (1080p/720p/540p etc.) into separate tables sorted highest-to-lowest. On pst.moe, p.darklab.sh & 0g.gg: clickable links, same-tab opening, and copy-all-links per resolution. On Transfer.it: direct download links, PotPlayer stream integration, and batch copy utilities powered by Dynamic Island. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
@@ -4807,7 +4807,7 @@
         });
 
         if (toggleTmdbEnabled) {
-            toggleTmdbEnabled.checked = getSetting('sfx-tmdb-enabled', true);
+            toggleTmdbEnabled.checked = getSetting('sfx-tmdb-enabled', false);
             toggleTmdbEnabled.addEventListener('change', () => {
                 setSetting('sfx-tmdb-enabled', toggleTmdbEnabled.checked);
             });
@@ -10135,7 +10135,7 @@
                                     <div class="sfx-tmdb-sinflix-msg" id="sfx-tmdb-sinflix-msg" style="display: none;"></div>
                                 </div>
 
-                                <!-- Recommendations / Suggestions Section (Korean or English only) -->
+                                <!-- Recommendations / Suggestions Section (Korean only) -->
                                 <div class="sfx-tmdb-section" id="sfx-tmdb-recommendations-section" style="display: none;">
                                     <div class="sfx-tmdb-section-header">
                                         <span class="sfx-tmdb-section-title">More Like This</span>
@@ -11352,7 +11352,7 @@
                 gallerySection.style.display = 'none';
             }
 
-            // 8b. Recommendations / Suggestions Section (After Image Section, Korean or English only)
+            // 8b. Recommendations / Suggestions Section (After Image Section, Korean only)
             const recsSection = modalWrap.querySelector('#sfx-tmdb-recommendations-section');
             const recsListEl = modalWrap.querySelector('#sfx-tmdb-recs-list');
             const recsCountEl = modalWrap.querySelector('#sfx-rec-count');
@@ -11367,8 +11367,8 @@
                 if (!item || !item.id || seenRecIds.has(item.id) || item.id === data.id) continue;
                 seenRecIds.add(item.id);
                 const lang = item.original_language;
-                // Suggestions MUST be Korean ('ko') or English ('en')
-                if (lang === 'ko' || lang === 'en') {
+                // Suggestions MUST be Korean ('ko') only - no English or other language contents
+                if (lang === 'ko') {
                     if (item.poster_path) {
                         filteredRecs.push(item);
                     }
@@ -11383,7 +11383,7 @@
                     const recTitle = r.name || r.title || 'Untitled';
                     const recDate = r.first_air_date || r.release_date || '';
                     const recYear = recDate ? recDate.slice(0, 4) : '';
-                    const langLabel = r.original_language === 'ko' ? 'KR' : 'EN';
+                    const langLabel = 'KR';
                     const scoreBadge = (typeof r.vote_average === 'number' && r.vote_average > 0)
                         ? `<div class="sfx-rec-score-badge">${Math.round(r.vote_average * 10)}%</div>`
                         : '';
@@ -11622,7 +11622,7 @@
                 activeDramaName = titleEl.getAttribute('data-name');
                 activeDramaElement = titleEl;
 
-                const tmdbEnabled = getSetting('sfx-tmdb-enabled', true);
+                const tmdbEnabled = getSetting('sfx-tmdb-enabled', false);
                 if (tmdbEnabled) {
                     openTmdbModal(activeDramaName);
                     return;

@@ -2,14 +2,14 @@
 
 A premium userscript that elevates the SinFlix drama index and its associated download pages — featuring an Apple TV+ inspired **TheMovieDB media modal**, in-page search via **Dynamic Island**, multi-source ratings, intelligent multi-season MyDramaList matching, and automated quality-splitting for download hosts.
 
-**Author:** [mthlpbs](https://greasyfork.org/en/users/1490967-mthlpbs) · **License:** MIT · **Latest Version:** 26.09.21
+**Author:** [mthlpbs](https://greasyfork.org/en/users/1490967-mthlpbs) · **License:** MIT · **Latest Version:** 26.09.22
 
 ---
 
 ## 🌟 Key Features
 
 ### 🎬 Immersive TheMovieDB (TMDb) Drama Modal
-Clicking on any drama title opens a rich, Apple TV+ style media viewer:
+Clicking on any drama title opens a rich, Apple TV+ style media viewer (disabled by default; toggle on anytime in Settings):
 - **Dynamic Ambient Backdrop**: Ambient blurred glassmorphic background that dynamically matches the active drama's key art.
 - **Scores & Ratings**:
   - **Rotten Tomatoes**: Tomatometer score, Audience popcorn score (`🍿`), and direct link.
@@ -28,7 +28,7 @@ Clicking on any drama title opens a rich, Apple TV+ style media viewer:
   - Positioned directly before Recommendations.
   - Clean 2-column balanced grid preventing single links from awkwardly stretching across the entire width.
   - One-click access to SinFlix links, Dramaday, and Ext.to.
-- **Language-Filtered Recommendations**: "More Like This" carousel filtered strictly for Korean and English releases with high-quality posters.
+- **Korean-Only Recommendations**: "More Like This" carousel filtered strictly for Korean releases only with high-quality posters (English and other foreign language content are completely excluded).
 
 ---
 
@@ -39,7 +39,8 @@ To protect your privacy and ensure reliable quota, default testing keys are not 
 2. **Get your API key**: Navigate to [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api) and request an API key (or copy your existing credentials).
 3. **Save in Settings**:
    - Click the **Settings (gear icon)** on the SinFlix Dynamic Island (or click **"Open Settings"** inside the drama modal).
-   - Under the **TheMovieDB** section, paste either your **API Read Access Token (v4 auth)** or **API Key (v3 auth)**.
+   - Under the **TheMovieDB** section, enable the **"Enable TheMovieDB"** switch.
+   - Paste either your **API Read Access Token (v4 auth)** or **API Key (v3 auth)**.
    - Click **"Save Credentials"** (or press Enter) to immediately persist your keys.
    - Your credentials are safely stored across both userscript storage (`GM_setValue`) and `localStorage` for maximum reliability across page refreshes.
 
