@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SinFlix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.09.22
+// @version      26.09.22.1
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On BuzzHeavier folder pages: auto-splits episodes by quality (1080p/720p/540p etc.) into separate tables sorted highest-to-lowest. On pst.moe, p.darklab.sh & 0g.gg: clickable links, same-tab opening, and copy-all-links per resolution. On Transfer.it: direct download links, PotPlayer stream integration, and batch copy utilities powered by Dynamic Island. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
@@ -4112,25 +4112,6 @@
                 color: white;
             }
 
-            /* --- Mega Fetchrr Dot --- */
-            .sinflix-mega-fetchrr-dot {
-                display: inline-block;
-                width: 13px;
-                height: 13px;
-                border-radius: 50%;
-                background: #00c261;
-                cursor: pointer;
-                vertical-align: middle;
-                margin-left: 5px;
-                opacity: 0.55;
-                transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-                flex-shrink: 0;
-            }
-            .sinflix-mega-fetchrr-dot:hover {
-                opacity: 1;
-                transform: scale(1.3);
-                box-shadow: 0 0 6px rgba(0, 194, 97, 0.7);
-            }
 
             /* --- FileDitch download circle --- */
             .sinflix-fd-dl-circle {
@@ -6210,13 +6191,6 @@
                         anchor.textContent = rawUrl;
                         contentSpan.appendChild(anchor);
 
-                        if (getSetting('sfx-mega-fetchrr-enabled', true) && (cleanUrl.includes('mega.nz/file/') || cleanUrl.includes('mega.nz/folder/'))) {
-                            const circle = document.createElement('span');
-                            circle.className = 'sinflix-mega-fetchrr-dot';
-                            circle.title = 'Open in Fetchrr.io — direct mirror download';
-                            circle.dataset.megaUrl = cleanUrl;
-                            contentSpan.appendChild(circle);
-                        }
 
                         if (cleanUrl.includes('fileditchfiles.me')) {
                             const dlCircle = document.createElement('span');
@@ -6302,13 +6276,6 @@
                         anchor.textContent = rawUrl;
                         fragment.appendChild(anchor);
 
-                        if (getSetting('sfx-mega-fetchrr-enabled', true) && (cleanUrl.includes('mega.nz/file/') || cleanUrl.includes('mega.nz/folder/'))) {
-                            const circle = document.createElement('span');
-                            circle.className = 'sinflix-mega-fetchrr-dot';
-                            circle.title = 'Open in Fetchrr.io — direct mirror download';
-                            circle.dataset.megaUrl = cleanUrl;
-                            fragment.appendChild(circle);
-                        }
 
                         if (cleanUrl.includes('fileditchfiles.me')) {
                             const dlCircle = document.createElement('span');
@@ -6368,17 +6335,6 @@
             });
         });
 
-        document.querySelectorAll('.sinflix-mega-fetchrr-dot').forEach(dot => {
-            if (dot.dataset.sfxListener) return;
-            dot.dataset.sfxListener = 'true';
-            dot.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const megaUrl = dot.getAttribute('data-mega-url');
-                if (!megaUrl) return;
-                openMegaInFetchrr(megaUrl);
-                showNotification('Opening Fetchrr.io...', 'info', 2000);
-            });
-        });
 
         if (!window.sfxDropdownInit) {
             window.sfxDropdownInit = true;

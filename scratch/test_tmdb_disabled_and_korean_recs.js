@@ -9,8 +9,13 @@ const scriptContent = fs.readFileSync(scriptPath, 'utf8');
 
 // Test 1: Version check
 console.log('Test 1: Version bump check');
-assert(scriptContent.includes('// @version      26.09.22'), 'Version should be bumped to 26.09.22');
-console.log('  ✔ Version is 26.09.22');
+assert(scriptContent.includes('// @version      26.09.22.1'), 'Version should be bumped to 26.09.22.1');
+console.log('  ✔ Version is 26.09.22.1');
+
+// Test 1b: Fetchrr removed from paste pages
+console.log('\nTest 1b: Fetchrr removed from paste sites (0g.gg, darklab, pst.moe)');
+assert(!scriptContent.includes('sinflix-mega-fetchrr-dot'), 'sinflix-mega-fetchrr-dot must not exist in userscript');
+console.log('  ✔ sinflix-mega-fetchrr-dot completely removed');
 
 // Test 2: TMDb disabled by default
 console.log('\nTest 2: sfx-tmdb-enabled default value check');
