@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SinFlix Modifier
 // @namespace    https://greasyfork.org/en/users/1490967-asurpbs
-// @version      26.09.22.1
+// @version      26.09.27.1
 // @description  Enhances SinFlix pages with Google & MyDramaList search icons, BuzzHeavier ID auto-linking, back-to-top button, inline search, customizable section ordering, and a SinFlix chat button. On BuzzHeavier folder pages: auto-splits episodes by quality (1080p/720p/540p etc.) into separate tables sorted highest-to-lowest. On pst.moe, p.darklab.sh & 0g.gg: clickable links, same-tab opening, and copy-all-links per resolution. On Transfer.it: direct download links, PotPlayer stream integration, and batch copy utilities powered by Dynamic Island. On mega.nz file/folder pages: Dynamic Island pill that opens Fetchrr.io with the link pre-filled. On fetchrr.io: auto-fills the mega link and clicks Parse.
 // @license      MIT
 // @author       asurpbs
@@ -2551,6 +2551,185 @@
             }
         }
 
+
+        /* Mobile-first TMDB layout refinements */
+        @media (max-width: 768px) {
+            .sfx-tmdb-header {
+                padding: max(10px, env(safe-area-inset-top)) 12px 10px 12px;
+                gap: 8px;
+                min-height: 56px;
+            }
+            .sfx-tmdb-title-group {
+                gap: 7px;
+                overflow: hidden;
+            }
+            .sfx-tmdb-title {
+                font-size: 15px;
+                gap: 5px;
+                min-width: 0;
+            }
+            .sfx-tmdb-year {
+                font-size: 12px;
+            }
+            .sfx-tmdb-header-actions {
+                gap: 6px;
+            }
+            .sfx-tmdb-back-btn,
+            .sfx-tmdb-close-btn {
+                width: 38px;
+                height: 38px;
+            }
+            .sfx-header-search-capsule {
+                padding: 2px 4px;
+                gap: 2px;
+            }
+            .sfx-header-search-capsule .sfx-popover-icon-btn {
+                width: 34px !important;
+                height: 34px !important;
+            }
+            .sfx-tmdb-scroll-body {
+                padding: 16px 12px calc(88px + env(safe-area-inset-bottom)) 12px;
+                gap: 16px;
+            }
+            .sfx-tmdb-content {
+                gap: 14px;
+            }
+            .sfx-media-hero-card {
+                border-radius: 14px;
+            }
+            .sfx-media-hero-overlay {
+                background:
+                    linear-gradient(180deg, rgba(14, 15, 20, 0.4) 0%, rgba(14, 15, 20, 0.9) 36%, rgba(14, 15, 20, 0.99) 72%, #0e0f14 100%);
+            }
+            .sfx-media-hero-body {
+                padding: 16px;
+                gap: 14px;
+            }
+            .sfx-media-poster-wrap {
+                width: min(42vw, 150px);
+                height: auto;
+                aspect-ratio: 2 / 3;
+                border-radius: 12px;
+            }
+            .sfx-media-details {
+                gap: 10px;
+                width: 100%;
+            }
+            .sfx-media-title-row {
+                width: 100%;
+                justify-content: center;
+            }
+            .sfx-media-main-title {
+                font-size: clamp(22px, 6vw, 28px);
+                line-height: 1.12;
+            }
+            .sfx-media-release-year {
+                font-size: clamp(18px, 5vw, 22px);
+            }
+            .sfx-media-meta-line {
+                font-size: 12px;
+                line-height: 1.45;
+            }
+            .sfx-media-scores-actions-row {
+                width: 100%;
+                justify-content: flex-start;
+                flex-wrap: nowrap;
+                gap: 12px;
+                overflow-x: auto;
+                overflow-y: hidden;
+                padding: 4px 2px 8px;
+                scroll-snap-type: x proximity;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+            }
+            .sfx-media-scores-actions-row::-webkit-scrollbar {
+                display: none;
+            }
+            .sfx-media-scores-actions-row > * {
+                flex: 0 0 auto;
+                scroll-snap-align: start;
+            }
+            .sfx-media-overview-text {
+                font-size: 13px;
+                line-height: 1.55;
+                text-align: left;
+            }
+            .sfx-media-overview-heading {
+                text-align: left;
+            }
+            .sfx-media-crew {
+                width: 100%;
+                justify-content: flex-start;
+                gap: 18px;
+                text-align: left;
+            }
+            .sfx-tmdb-section-header {
+                align-items: center;
+                flex-wrap: nowrap;
+                gap: 10px;
+            }
+            .sfx-tmdb-section-title {
+                font-size: 11px;
+            }
+            .sfx-tmdb-cast-scroll-container {
+                margin-left: -12px;
+                width: calc(100% + 24px);
+                padding-left: 12px;
+                padding-right: 12px;
+            }
+            .sfx-rec-card {
+                min-width: 118px;
+                max-width: 118px;
+            }
+            .sfx-season-card {
+                min-width: 132px;
+                max-width: 132px;
+            }
+            .sfx-tmdb-download-card {
+                min-height: 58px;
+                padding: 10px 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .sfx-tmdb-header {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+            .sfx-header-search-capsule {
+                display: none;
+            }
+            #sfx-tmdb-modal-backdrop:not(.sfx-header-scrolled) .sfx-tmdb-title-group {
+                flex: 0 1 auto;
+            }
+            .sfx-tmdb-scroll-body {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+            .sfx-media-hero-body {
+                padding: 14px 12px 16px;
+            }
+            .sfx-media-poster-wrap {
+                width: min(46vw, 138px);
+            }
+            .sfx-user-score-circle {
+                width: 44px;
+                height: 44px;
+            }
+            .sfx-user-score-svg {
+                width: 40px;
+                height: 40px;
+            }
+            .sfx-play-trailer-action-btn {
+                min-height: 40px;
+                padding: 8px 14px;
+            }
+            .sfx-rec-card {
+                min-width: 108px;
+                max-width: 108px;
+            }
+        }
+
         /* Download Options Section */
         .sfx-tmdb-download-grid {
             display: grid;
@@ -3790,6 +3969,55 @@
                 background: rgba(48, 209, 88, 0.18) !important;
                 color: #30d158 !important;
             }
+            @media (max-width: 768px) {
+                .sfx-filter-container {
+                    display: flex !important;
+                    flex-wrap: nowrap !important;
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    overflow-x: auto !important;
+                    overflow-y: hidden !important;
+                    gap: 7px !important;
+                    margin: 14px 0 18px 0 !important;
+                    padding: 6px !important;
+                    border-radius: 16px !important;
+                    box-sizing: border-box !important;
+                    scroll-snap-type: x proximity !important;
+                    overscroll-behavior-x: contain !important;
+                    -webkit-overflow-scrolling: touch !important;
+                    scrollbar-width: none !important;
+                }
+                .sfx-filter-container::-webkit-scrollbar {
+                    display: none !important;
+                }
+                .sfx-filter-chip {
+                    flex: 0 0 auto !important;
+                    min-height: 38px !important;
+                    padding: 8px 12px !important;
+                    border-radius: 12px !important;
+                    font-size: 12px !important;
+                    scroll-snap-align: start !important;
+                    touch-action: manipulation !important;
+                    -webkit-tap-highlight-color: transparent !important;
+                }
+                .sfx-filter-chip-count {
+                    min-width: 20px !important;
+                    padding: 3px 6px !important;
+                    text-align: center !important;
+                }
+            }
+            @media (max-width: 480px) {
+                .sfx-filter-container {
+                    margin-left: -4px !important;
+                    width: calc(100% + 8px) !important;
+                    border-radius: 14px !important;
+                }
+                .sfx-filter-chip {
+                    min-height: 40px !important;
+                    padding: 8px 11px !important;
+                }
+            }
+
             .sfx-completed-drama-item {
                 animation: sfx-fade-in 0.25s ease forwards !important;
             }
@@ -5124,12 +5352,12 @@
 
         const filterRanges = [
             { label: 'All', key: 'all' },
-            { label: '<= 12', key: '12' },
-            { label: '<= 16', key: '16' },
-            { label: '<= 20', key: '20' },
-            { label: '<= 30', key: '30' },
-            { label: '<= 50', key: '50' },
-            { label: '<= 100', key: '100' },
+            { label: '1–12', key: '12' },
+            { label: '13–16', key: '16' },
+            { label: '17–20', key: '20' },
+            { label: '21–30', key: '30' },
+            { label: '31–50', key: '50' },
+            { label: '51–100', key: '100' },
             { label: '100+', key: '100+' }
         ];
 
